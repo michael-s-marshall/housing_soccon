@@ -417,6 +417,16 @@ summary(con_soc)
 
 anova(con_con, con_soc)
 
+con_pri <- lmer(soc_con ~ (private_renting * affordability) + 
+                  white_british + income +
+                  religion + male + higher_ed +
+                  own_outright + social_housing + tenure_other + 
+                  Age + (1|la_code),
+                data = df_lmer, REML = FALSE)
+summary(con_pri)
+
+anova(con_con, con_pri)
+
 ###############################################################################
 # econ_right dimension --------------------------------------------------------
 ###############################################################################
