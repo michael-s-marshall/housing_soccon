@@ -2,7 +2,9 @@
 
 # loading libraries -----------------------------------------------------------
 
-pacman::p_load(tidyverse, lavaan, psych, haven)
+pacman::p_load(tidyverse, lavaan, psych, haven, jtools)
+
+rm(list = ls())
 
 # loading data ----------------------------------------------------------------
 
@@ -54,7 +56,7 @@ print(fit4, digits=2, cutoff=0.32, sort = T)
 # cfa -----------------------------------------------------------------
 
 pol_model <- 'soc_con =~ f01_3 + f01_11 + f01_12
-              right_left =~ f01_1 + f01_5 + f01_6'
+              right_left =~ f01_1 + f01_2 + f01_5 + f01_6 + f01_7'
 
 cfa_2 <- cfa(pol_model, data = efa_vars, ordered = T)
 
@@ -63,18 +65,18 @@ summary(cfa_2, fit.measures = T, standardized = T)
 # making scales -----------------------------------------------------
 
 keys_list <- list(soc_con = c("f01_3","f01_11","f01_12"),
-                  econ_right = c("f01_1","f01_5","f01_6"))
-scores <- scoreItems(keys_list, df_nas, min=1, max=5)
+                  econ_right = c("f01_1","-f01_2","f01_5","f01_6","-f01_7"))
+scores <- scoreItems(keys_list, efa_vars, min=1, max=5)
 scores$alpha
 
-rm(keys_list, scores)
+rm(scores)
 
-keys_list <- list(soc_con = c("f01_3","f01_11","f01_12"))
 scores <- scoreItems(keys_list, df_nas, min=1, max=5)
 scores$alpha
 scores$scores[scores$missing > 0] <- NA  #get rid of cases with missing data
 describe(scores$scores)
-df_nas$soc_con <- c(scale(scores$scores))
+df_nas$soc_con <- c(scale(scores$scores[,"soc_con"]))
+df_nas$econ_right <- c(scale(scores$scores[,"econ_right"]))
 
 # visualisation of soc_con with independent vars ----------------------------
 
@@ -152,6 +154,78 @@ df_nas %>%
   ggplot(aes(x = soc_con, y = fct_reorder(region, soc_con))) +
   geom_density_ridges(scale = 1, quantile_lines = T)
 
+# visualisation of econ_right with independent vars ----------------------------
+
+df_nas %>% 
+  mutate(
+    tenure = fct_recode(as.factor(y03),
+                        "Own outright" = "1",
+                        "Own with mortgage" = "2",
+                        "Local authority" = "3",
+                        "Private renting" = "4",
+                        "Housing association" = "5",
+                        "Other" = "6")
+  ) %>% 
+  ggplot(aes(x = tenure, y = econ_right)) +
+  geom_boxplot()
+
+df_nas %>% 
+  ggplot(aes(x = as.factor(y01_Annual), y = econ_right)) +
+  geom_boxplot()
+
+df_nas %>% 
+  ggplot(aes(x = as.factor(y06), y = econ_right)) +
+  geom_boxplot()
+
+df_nas %>% 
+  ggplot(aes(x = as.factor(y09), y = econ_right)) +
+  geom_boxplot()
+
+df_nas %>% 
+  ggplot(aes(x = Age, y = econ_right)) +
+  geom_boxplot(mapping = aes(group = cut_width(Age, 5))) +
+  geom_smooth()
+
+df_nas %>% 
+  mutate(
+    white_british = y11 == 1
+  ) %>% 
+  ggplot(aes(x = white_british, y = econ_right)) +
+  geom_boxplot()
+
+df_nas %>% 
+  mutate(
+    edlevel = fct_recode(as.factor(edlevel),
+                         "No qualifications" = "0",
+                         "Below GCSE" = "1",
+                         "GCSE" = "2",
+                         "A-level" = "3",
+                         "Undergraduate" = "4",
+                         "Postgrad" = "5")
+  ) %>% 
+  ggplot(aes(x = edlevel, y = econ_right)) +
+  geom_boxplot()
+
+df_nas %>% 
+  mutate(
+    region = fct_recode(
+      as.factor(region),
+      "East midlands" = "1",
+      "Eastern" = "2",
+      "London" = "3",
+      "North East" = "4",
+      "North West" = "5",
+      "Scotland" = "6",
+      "South East" = "7",
+      "South West" = "8",
+      "Wales" = "9",
+      "West Midlands" = "10",
+      "Yorkshire & Humber" = "11"
+    )
+  ) %>% 
+  ggplot(aes(x = econ_right, y = fct_reorder(region, econ_right))) +
+  geom_density_ridges(scale = 1, quantile_lines = T)
+
 # making predictor variables ---------------------------------------
 
 df_nas$white_british <- df_nas$y11 == 1
@@ -165,14 +239,19 @@ df_nas <- df_nas %>%
                         "Own with mortgage" = "2",
                         "Social housing" = c("3","5"),
                         "Private renting" = "4",
-                        "Other" = "6")
+                        "Other" = "6"),
+    home_owner = tenure %in% c("Own outright", "Own with mortgage")
   )
 
 df_nas %>% 
-  count(tenure, y03)
+  count(tenure, home_owner, y03)
 
 df_nas %>% 
   ggplot(aes(x = tenure, y = soc_con)) +
+  geom_boxplot()
+
+df_nas %>% 
+  ggplot(aes(x = tenure, y = econ_right)) +
   geom_boxplot()
 
 # lm  and lmer null models ----------------------------------------------------
@@ -182,7 +261,7 @@ pacman::p_load(lme4, lmerTest)
 df_lmer <- df_nas %>% 
   select(soc_con, white_british, y01_Annual,
          religion, male, higher_ed, tenure, Age, region,
-         LA_UA_Code, e01, g01_1) %>% 
+         LA_UA_Code, e01, g01_1, econ_right, home_owner) %>% 
   mutate(
     region = fct_recode(
       as.factor(region),
@@ -233,13 +312,20 @@ rescale01 <- function(x, ...){
 
 df_lmer$income <- rescale01(df_lmer$income, na.rm = T)
 
-lmer_multi <- lmer(soc_con ~ white_british + income +
+df_lmer$own_mortgage <- df_lmer$tenure == "Own with mortgage"
+df_lmer$social_housing <- df_lmer$tenure == "Social housing"
+df_lmer$private_renting <- df_lmer$tenure == "Private renting"
+df_lmer$own_outright <- df_lmer$tenure == "Own outright"
+df_lmer$tenure_other <- df_lmer$tenure == "Other"
+
+con_multi <- lmer(soc_con ~ white_british + income +
                      religion + male + higher_ed +
-                     tenure + Age + (1|la_code),
+                     own_outright + social_housing +
+                     private_renting + tenure_other + Age + 
+                     (1|la_code),
                    data = df_lmer, REML = FALSE)
 
-summary(lmer_multi)
-summ(lmer_multi)
+summary(con_multi)
 
 # affordability data ---------------------------------------------------------
 
@@ -268,177 +354,148 @@ df_lmer <- df_lmer %>% na.omit()
 
 # rerunning minus scotland ---------------------------------------------------
 
-lmer_multi <- lmer(soc_con ~ white_british + income +
+con_multi <- lmer(soc_con ~ white_british + income +
+                    religion + male + higher_ed +
+                    own_outright + social_housing +
+                    private_renting + tenure_other + Age + 
+                    (1|la_code),
+                  data = df_lmer, REML = FALSE)
+
+summary(con_multi)
+
+con_multi2 <- lmer(soc_con ~ white_british + income +
+                      religion + male + higher_ed +
+                      home_owner + social_housing + tenure_other +
+                      Age + (1|la_code),
+                    data = df_lmer, REML = FALSE)
+
+summary(con_multi2)
+
+# including level 2 predictor for affordability ------------------------------
+
+con_con <- lmer(soc_con ~ white_british + income +
+                  religion + male + higher_ed +
+                  own_outright + social_housing +
+                  private_renting + tenure_other + Age + 
+                  affordability + 
+                  (1|la_code),
+                data = df_lmer, REML = FALSE)
+summary(con_con)
+
+anova(con_multi, con_con)
+
+# cross level interaction ------------------------------------------------------
+
+con_out <- lmer(soc_con ~ (own_outright * affordability) +
+                  white_british + income +
+                  religion + male + higher_ed +
+                  social_housing +
+                  private_renting + tenure_other +
+                  Age + (1|la_code),
+                 data = df_lmer, REML = FALSE)
+summary(con_out)
+
+anova(con_con, con_out)
+
+con_own <- lmer(soc_con ~ (home_owner * affordability) + 
+                   white_british + income +
+                   religion + male + higher_ed +
+                   social_housing + tenure_other +
+                   Age + (1|la_code),
+                 data = df_lmer, REML = FALSE)
+summary(con_own)
+
+anova(con_con, con_own)
+
+con_soc <- lmer(soc_con ~ (social_housing * affordability) + 
+                   white_british + income +
+                   religion + male + higher_ed +
+                   own_outright + private_renting + tenure_other + 
+                   Age + (1|la_code),
+                 data = df_lmer, REML = FALSE)
+summary(con_soc)
+
+anova(con_con, con_soc)
+
+###############################################################################
+# econ_right dimension --------------------------------------------------------
+###############################################################################
+
+# ols null model
+econ_fit <- lm(econ_right ~ 1, data = df_lmer)
+
+# lmer null model
+econ_lmer <- lmer(econ_right ~ (1|la_code), data = df_lmer)
+
+logLik(econ_fit)
+logLik(econ_lmer)
+2 * (logLik(econ_lmer) - logLik(econ_fit))
+
+# random intercepts
+ranef(econ_lmer)$la_code %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = `(Intercept)`)) +
+  geom_histogram(bins = 50, colour = "black", fill = "lightgrey")
+
+# lmer model with predictors ------------------------------------------------
+
+econ_multi <- lmer(econ_right ~ white_british + income +
                      religion + male + higher_ed +
-                     tenure + Age + (1|la_code),
-                   data = df_lmer, REML = FALSE)
-
-summary(lmer_multi)
-
-df_lmer$own_mortgage <- df_lmer$tenure == "Own with mortgage"
-df_lmer$social_housing <- df_lmer$tenure == "Social housing"
-df_lmer$private_renting <- df_lmer$tenure == "Private renting"
-
-lmer_multi2 <- lmer(soc_con ~ white_british + income +
-                     religion + male + higher_ed +
-                     own_mortgage + social_housing + 
+                     own_outright + social_housing +
+                     private_renting + tenure_other + 
                      Age + (1|la_code),
                    data = df_lmer, REML = FALSE)
 
-summary(lmer_multi2)
+summary(econ_multi)
 
-# including level 2 predictor for affordability ------------------------------
-
-lmer_con <- lmer(soc_con ~ white_british + income +
-                   religion + male + higher_ed +
-                   own_mortgage + social_housing + 
-                   Age + affordability + (1|la_code),
-                 data = df_lmer, REML = FALSE)
-summary(lmer_con)
-
-anova(lmer_multi2, lmer_con)
-
-# cross level interaction ------------------------------------------------------
-
-lmer_mor <- lmer(soc_con ~ (own_mortgage * affordability) + 
-                   white_british + income +
-                   religion + male + higher_ed +
-                   social_housing + 
-                   Age + (1|la_code),
-                 data = df_lmer, REML = FALSE)
-summary(lmer_mor)
-
-anova(lmer_con, lmer_mor)
-
-lmer_soc <- lmer(soc_con ~ (social_housing * affordability) + 
-                   white_british + income +
-                   religion + male + higher_ed +
-                   own_mortgage + 
-                   Age + (1|la_code),
-                 data = df_lmer, REML = FALSE)
-summary(lmer_soc)
-
-anova(lmer_con, lmer_soc)
-
-###############################################################################
-# left_right dimension --------------------------------------------------------
-###############################################################################
-
-# ols null model
-ols_fit <- lm(left_right ~ 1, data = df_lmer)
-
-# lmer null model
-lmer_fit <- lmer(left_right ~ (1|la_code), data = df_lmer)
-
-logLik(ols_fit)
-logLik(lmer_fit)
-2 * (logLik(lmer_fit) - logLik(ols_fit))
-
-# random intercepts
-ranef(lmer_fit)$la_code %>% 
-  as_tibble() %>% 
-  ggplot(aes(x = `(Intercept)`)) +
-  geom_histogram(bins = 50, colour = "black", fill = "lightgrey")
-
-# lmer model with predictors ------------------------------------------------
-
-lmer_multi <- lmer(left_right ~ white_british + income +
+econ_multi2 <- lmer(econ_right ~ white_british + income +
                      religion + male + higher_ed +
-                     tenure + Age + (1|la_code),
+                     home_owner + social_housing +
+                     tenure_other + Age + (1|la_code),
                    data = df_lmer, REML = FALSE)
 
-summary(lmer_multi)
-summ(lmer_multi)
+summary(econ_multi2)
 
 # including level 2 predictor for affordability ------------------------------
 
-lmer_con <- lmer(left_right ~ white_british + income +
+econ_con <- lmer(econ_right ~ white_british + income +
                    religion + male + higher_ed +
-                   own_mortgage + social_housing + 
+                   own_outright + social_housing + private_renting +
+                   tenure_other +
                    Age + affordability + (1|la_code),
                  data = df_lmer, REML = FALSE)
-summary(lmer_con)
+summary(econ_con)
 
-anova(lmer_multi, lmer_con)
+anova(econ_multi, econ_con)
 
 # cross level interaction ------------------------------------------------------
 
-lmer_mor <- lmer(left_right ~ (own_mortgage * affordability) + 
+econ_own <- lmer(econ_right ~ (own_outright * affordability) + 
                    white_british + income +
                    religion + male + higher_ed +
-                   social_housing + 
+                   social_housing + private_renting + tenure_other +
                    Age + (1|la_code),
                  data = df_lmer, REML = FALSE)
-summary(lmer_mor)
+summary(econ_own)
 
-anova(lmer_con, lmer_mor)
+anova(econ_con, econ_own)
 
-lmer_soc <- lmer(left_right ~ (social_housing * affordability) + 
+econ_soc <- lmer(econ_right ~ (social_housing * affordability) + 
                    white_british + income +
                    religion + male + higher_ed +
-                   own_mortgage + 
+                   own_outright + private_renting + tenure_other +
                    Age + (1|la_code),
                  data = df_lmer, REML = FALSE)
-summary(lmer_soc)
+summary(econ_soc)
 
-anova(lmer_con, lmer_soc)
+anova(econ_con, econ_soc)
 
-###############################################################################
-# tax_spend dimension --------------------------------------------------------
-###############################################################################
-
-# ols null model
-ols_fit <- lm(tax_spend ~ 1, data = df_lmer)
-
-# lmer null model
-lmer_fit <- lmer(tax_spend ~ (1|la_code), data = df_lmer)
-
-logLik(ols_fit)
-logLik(lmer_fit)
-2 * (logLik(lmer_fit) - logLik(ols_fit))
-
-# random intercepts
-ranef(lmer_fit)$la_code %>% 
-  as_tibble() %>% 
-  ggplot(aes(x = `(Intercept)`)) +
-  geom_histogram(bins = 50, colour = "black", fill = "lightgrey")
-
-# lmer model with predictors ------------------------------------------------
-lmer_multi <- lmer(tax_spend ~ white_british + income +
-                     religion + male + higher_ed +
-                     tenure + Age + (1|la_code),
-                   data = df_lmer, REML = FALSE)
-
-summary(lmer_multi)
-summ(lmer_multi)
-
-# including level 2 predictor for affordability ------------------------------
-lmer_con <- lmer(tax_spend ~ white_british + income +
-                   religion + male + higher_ed +
-                   own_mortgage + social_housing + 
-                   Age + affordability + (1|la_code),
-                 data = df_lmer, REML = FALSE)
-summary(lmer_con)
-
-anova(lmer_multi, lmer_con)
-
-# cross level interaction ------------------------------------------------------
-lmer_mor <- lmer(tax_spend ~ (own_mortgage * affordability) + 
+econ_pri <- lmer(econ_right ~ (private_renting * affordability) + 
                    white_british + income +
                    religion + male + higher_ed +
-                   social_housing + 
+                   own_outright + social_housing + tenure_other +
                    Age + (1|la_code),
                  data = df_lmer, REML = FALSE)
-summary(lmer_mor)
+summary(econ_pri)
 
-anova(lmer_con, lmer_mor)
-
-lmer_soc <- lmer(tax_spend ~ (social_housing * affordability) + 
-                   white_british + income +
-                   religion + male + higher_ed +
-                   own_mortgage + 
-                   Age + (1|la_code),
-                 data = df_lmer, REML = FALSE)
-summary(lmer_soc)
-
-anova(lmer_con, lmer_soc)
+anova(econ_con, econ_pri)
