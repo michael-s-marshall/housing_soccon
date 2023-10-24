@@ -2,6 +2,10 @@ pacman::p_load(tidyverse, lavaan, psych, haven, jtools, lme4, lmerTest)
 
 rm(list = ls())
 
+# lmer_coefs function ---------------------------------------------------------
+
+source("05_lmer_coefs_function.R")
+
 # loading data ----------------------------------------------------------------
 
 df <- read_dta("BES2019_W22_v24.0.dta")
@@ -64,6 +68,7 @@ df$non_voter <- df$p_turnout_2019 == 0
 df$non_voter[df$p_turnout_2019 == 9999] <- NA
 df$redistSelf[df$redistSelf == 9999] <- NA
 df$immigSelf[df$immigSelf == 9999] <- NA
+df$age <- rescale01(df$age, na.rm = T)
 
 df %>% 
   count(tory_2019, p_turnout_2019, p_past_vote_2019)
@@ -404,6 +409,8 @@ summary(con_out)
 
 anova(con_con, con_out)
 
+lmer_coefs(con_out)
+
 con_own <- lmer(al_scale ~ (own_mortgage * affordability) + 
                   white_british + 
                   no_religion + uni +
@@ -415,6 +422,8 @@ con_own <- lmer(al_scale ~ (own_mortgage * affordability) +
 summary(con_own)
 
 anova(con_con, con_own)
+
+lmer_coefs(con_own)
 
 con_soc <- lmer(al_scale ~ (social_housing * affordability) + 
                   white_british + 
@@ -428,6 +437,8 @@ summary(con_soc)
 
 anova(con_con, con_soc)
 
+lmer_coefs(con_soc)
+
 con_pri <- lmer(al_scale ~ (private_renting * affordability) + 
                   white_british + 
                   no_religion + uni +
@@ -439,6 +450,8 @@ con_pri <- lmer(al_scale ~ (private_renting * affordability) +
 summary(con_pri)
 
 anova(con_con, con_pri)
+
+lmer_coefs(con_pri)
 
 ###############################################################################
 # econ_right dimension --------------------------------------------------------
@@ -521,6 +534,8 @@ summary(econ_out)
 
 anova(econ_con, econ_out)
 
+lmer_coefs(econ_out)
+
 econ_own <- lmer(lr_scale ~ (own_mortgage * affordability) + 
                   white_british + 
                   no_religion + uni +
@@ -532,6 +547,8 @@ econ_own <- lmer(lr_scale ~ (own_mortgage * affordability) +
 summary(econ_own)
 
 anova(econ_con, econ_own)
+
+lmer_coefs(econ_own)
 
 econ_soc <- lmer(lr_scale ~ (social_housing * affordability) + 
                   white_british + 
@@ -545,6 +562,8 @@ summary(econ_soc)
 
 anova(econ_con, econ_soc)
 
+lmer_coefs(econ_soc)
+
 econ_pri <- lmer(lr_scale ~ (private_renting * affordability) + 
                   white_british + 
                   no_religion + uni +
@@ -556,6 +575,8 @@ econ_pri <- lmer(lr_scale ~ (private_renting * affordability) +
 summary(econ_pri)
 
 anova(econ_con, econ_pri)
+
+lmer_coefs(econ_pri)
 
 ###############################################################################
 # redistself ------------------------------------------------------------------
@@ -624,6 +645,8 @@ summary(redist_con3)
 
 anova(redist_multi, redist_con3)
 
+lmer_coefs(redist_con3)
+
 # cross level interaction ------------------------------------------------------
 
 redist_out <- lmer(redistSelf ~ (own_outright * affordability) +
@@ -636,7 +659,9 @@ redist_out <- lmer(redistSelf ~ (own_outright * affordability) +
                  data = df_redist, REML = FALSE)
 summary(redist_out)
 
-anova(redist_con, redist_out)
+anova(redist_con3, redist_out)
+
+lmer_coefs(redist_out)
 
 redist_own <- lmer(redistSelf ~ (own_mortgage * affordability) + 
                    white_british + 
@@ -648,7 +673,9 @@ redist_own <- lmer(redistSelf ~ (own_mortgage * affordability) +
                  data = df_redist, REML = FALSE)
 summary(redist_own)
 
-anova(redist_con, redist_own)
+anova(redist_con3, redist_own)
+
+lmer_coefs(redist_own)
 
 redist_soc <- lmer(redistSelf ~ (social_housing * affordability) + 
                    white_british + 
@@ -660,7 +687,9 @@ redist_soc <- lmer(redistSelf ~ (social_housing * affordability) +
                  data = df_redist, REML = FALSE)
 summary(redist_soc)
 
-anova(redist_con, redist_soc)
+anova(redist_con3, redist_soc)
+
+lmer_coefs(redist_soc)
 
 redist_pri <- lmer(redistSelf ~ (private_renting * affordability) + 
                    white_british + 
@@ -672,11 +701,21 @@ redist_pri <- lmer(redistSelf ~ (private_renting * affordability) +
                  data = df_redist, REML = FALSE)
 summary(redist_pri)
 
-anova(redist_con, redist_pri)
+anova(redist_con3, redist_pri)
+
+lmer_coefs(redist_pri)
 
 ##############################################################################
 # immigself ------------------------------------------------------------------
 ##############################################################################
+
+# reordering immigSelf
+df_immi <- df_immi %>% 
+  rename(immigSelf_pro = immigSelf) %>% 
+  mutate(immigSelf = 10 - immigSelf_pro)
+
+df_immi %>% 
+  count(immigSelf, immigSelf_pro)
 
 # ols null model
 immi_fit <- lm(immigSelf ~ 1, data = df_immi)
@@ -741,6 +780,8 @@ summary(immi_con3)
 
 anova(immi_multi, immi_con3)
 
+lmer_coefs(immi_con3)
+
 # cross level interaction ------------------------------------------------------
 
 immi_out <- lmer(immigSelf ~ (own_outright * affordability) +
@@ -755,6 +796,8 @@ summary(immi_out)
 
 anova(immi_con, immi_out)
 
+lmer_coefs(immi_out)
+
 immi_own <- lmer(immigSelf ~ (own_mortgage * affordability) + 
                      white_british + 
                      no_religion + uni +
@@ -766,6 +809,8 @@ immi_own <- lmer(immigSelf ~ (own_mortgage * affordability) +
 summary(immi_own)
 
 anova(immi_con, immi_own)
+
+lmer_coefs(immi_own)
 
 immi_soc <- lmer(immigSelf ~ (social_housing * affordability) + 
                      white_british + 
@@ -779,6 +824,8 @@ summary(immi_soc)
 
 anova(immi_con, immi_soc)
 
+lmer_coefs(immi_soc)
+
 immi_pri <- lmer(immigSelf ~ (private_renting * affordability) + 
                      white_british + 
                      no_religion + uni +
@@ -790,6 +837,8 @@ immi_pri <- lmer(immigSelf ~ (private_renting * affordability) +
 summary(immi_pri)
 
 anova(immi_con, immi_pri)
+
+lmer_coefs(immi_pri)
 
 #############################################################################
 # vote tory 2019 -----------------------------------------------------------
