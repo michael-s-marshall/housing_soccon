@@ -39,9 +39,17 @@ df <- df %>%
       as.factor(p_edlevel),
       "1" = c("4","5"),
       "0" = c("0","1","2","3")
-    ),
-    white_british = fct_lump_n(as.factor(p_ethnicity), n = 1),
-    no_religion = fct_lump_n(as.factor(p_religion), n = 1),
+    ) %>% 
+      as.character() %>% 
+      parse_double(),
+    white_british = fct_lump_n(as.factor(p_ethnicity), n = 1) %>% 
+      fct_recode("0" = "Other") %>% 
+      as.character() %>% 
+      parse_double(),
+    no_religion = fct_lump_n(as.factor(p_religion), n = 1) %>% 
+      fct_recode("0" = "Other") %>% 
+      as.character() %>% 
+      parse_double(),
     soc_class = fct_collapse(
       as.factor(p_socgrade),
       "A-B" = c("1","2"),
@@ -49,19 +57,24 @@ df <- df %>%
       "D-E" = c("5","6"),
       "Other" = c("7","8")
     ),
-    non_uk_born = fct_lump_n(as.factor(p_country_birth), n = 1),
+    non_uk_born = fct_lump_n(as.factor(p_country_birth), n = 1) %>% 
+      fct_recode("0" = "Other") %>% 
+      as.character() %>% 
+      parse_double(),
     tory_2019 = fct_lump_n(as.factor(p_past_vote_2019), n = 1)
   ) %>% 
   rename(la_code = oslaua_code)
 
 df$soc_class[df$soc_class == "Other"] <- NA
+df$c1_c2 <- ifelse(df$soc_class == "C1-C2", 1, 0)
+df$d_e <- ifelse(df$soc_class == "D-E", 1, 0)
 df$income <- ifelse(df$p_gross_household %in% c(16, 17), 
                     NA, df$p_gross_household)
 df$income <- rescale01(df$income, na.rm = T)
-df$own_outright <- df$p_housing == 1
-df$private_renting <- df$p_housing == 4
-df$social_housing <- df$p_housing %in% c(5, 6)
-df$own_mortgage <- df$p_housing == 2
+df$own_outright <- ifelse(df$p_housing == 1, 1, 0)
+df$private_renting <- ifelse(df$p_housing == 4, 1, 0)
+df$social_housing <- ifelse(df$p_housing == 5|df$p_housing == 6, 1, 0)
+df$own_mortgage <- ifelse(df$p_housing == 2, 1, 0)
 df$tory_2019 <- ifelse(df$p_turnout_2019 == 0|df$tory_2019 == "Other", 0, 1)
 df$tory_2019[df$p_past_vote_2019 == 9999] <- NA
 df$non_voter <- df$p_turnout_2019 == 0
@@ -75,7 +88,7 @@ df %>%
 df %>% count(uni, p_edlevel)
 df %>% count(white_british, p_ethnicity)
 df %>% count(no_religion, p_religion)
-df %>% count(soc_class, p_socgrade)
+df %>% count(soc_class, c1_c2, d_e, p_socgrade)
 df %>% count(income, p_gross_household)
 df %>% count(p_housing, own_outright, own_mortgage, social_housing, private_renting)
 df %>% count(non_uk_born, p_country_birth)
@@ -87,14 +100,14 @@ df %>% count(immigSelf)
 
 df %>% 
   select(lr_scale, al_scale, la_code, uni, white_british, no_religion,
-         soc_class, income, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, income, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born, tory_2019, non_voter,
          redistSelf, immigSelf) %>% 
   map_int(~sum(is.na(.)))
 
 df %>% 
   select(lr_scale, al_scale, la_code, uni, white_british, no_religion,
-         soc_class, income, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, income, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born, tory_2019, non_voter,
          redistSelf, immigSelf) %>% 
   na.omit() %>% 
@@ -103,70 +116,70 @@ df %>%
 # df_con
 df %>% 
   select(al_scale, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit() %>% 
   nrow()
 
 df_con <- df %>% 
   select(al_scale, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit()
 
 # df_econ
 df %>% 
   select(lr_scale, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit() %>% 
   nrow()
 
 df_econ <- df %>% 
   select(lr_scale, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit()
 
 # df_redist
 df %>% 
   select(redistSelf, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit() %>% 
   nrow()
 
 df_redist <- df %>% 
   select(redistSelf, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit()
 
 # df_immi
 df %>% 
   select(immigSelf, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit() %>% 
   nrow()
 
 df_immi <- df %>% 
   select(immigSelf, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit()
 
 # df_tory
 df %>% 
   select(tory_2019, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit() %>% 
   nrow()
 
 df_tory <- df %>% 
   select(tory_2019, la_code, uni, white_british, no_religion,
-         soc_class, own_outright, own_mortgage, social_housing,
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, non_uk_born) %>% 
   na.omit()
 
@@ -194,7 +207,7 @@ con_multi <- lmer(al_scale ~ white_british +
                     no_religion + uni +
                     own_outright + social_housing +
                     private_renting + own_mortgage + age + 
-                    soc_class + non_uk_born +
+                    c1_c2 + d_e  + non_uk_born +
                     (1|la_code),
                   data = df_con, REML = FALSE)
 
@@ -360,7 +373,7 @@ pop <- pop %>%
   mutate(pop_growth = ((pop_2021 - pop_2011) / pop_2011) * 100,
          pop_2021 = rescale01(pop_2021, na.rm = T),
          pop_sqm_2021 = rescale01(pop_sqm_2021, na.rm = T)) %>% 
-  select(la_code, pop_2021, pop_growth, pop_sqm_2021, pop_sqm_growth)
+  select(la_code, pop_2021, pop_growth, pop_sqm_2021)
 
 pop$pop_growth <- rescale01(pop$pop_growth, na.rm = T)
 
@@ -387,7 +400,7 @@ con_multi <- lmer(al_scale ~ white_british +
                     no_religion + uni +
                     own_outright + social_housing +
                     private_renting + own_mortgage + age + 
-                    soc_class + non_uk_born +
+                    c1_c2 + d_e + non_uk_born +
                     (1|la_code),
                   data = df_con, REML = FALSE)
 
@@ -399,7 +412,7 @@ con_con <- lmer(al_scale ~ white_british +
                   no_religion + uni +
                   own_outright + social_housing +
                   private_renting + own_mortgage + age + 
-                  soc_class + non_uk_born + affordability + gdp_capita +
+                  c1_c2 + d_e + non_uk_born + affordability + gdp_capita +
                   (1|la_code),
                 data = df_con, REML = FALSE)
 summary(con_con)
@@ -410,7 +423,7 @@ con_con2 <- lmer(al_scale ~ white_british +
                    no_religion + uni +
                    own_outright + social_housing +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + affordability + gdp_growth_pct +
+                   c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct +
                    (1|la_code),
                  data = df_con, REML = FALSE)
 summary(con_con2)
@@ -421,7 +434,7 @@ con_con3 <- lmer(al_scale ~ white_british +
                    no_religion + uni +
                    own_outright + social_housing +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + affordability + gdp_growth_pct_5 +
+                   c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct_5 +
                    (1|la_code),
                  data = df_con, REML = FALSE)
 summary(con_con3)
@@ -432,7 +445,7 @@ con_con4 <- lmer(al_scale ~ white_british +
                    no_religion + uni +
                    own_outright + social_housing +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + affordability + pop_2021 +
+                   c1_c2 + d_e + non_uk_born + affordability + pop_2021 +
                    pop_sqm_2021 + pop_growth +
                    (1|la_code),
                  data = df_con, REML = FALSE)
@@ -447,7 +460,7 @@ con_out <- lmer(al_scale ~ (own_outright * affordability) +
                   no_religion + uni +
                   social_housing +
                   private_renting + own_mortgage + age + 
-                  soc_class + non_uk_born + gdp_growth_pct_5 +
+                  c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                   pop_sqm_2021 + pop_growth +
                   (1|la_code),
                 data = df_con, REML = FALSE)
@@ -462,7 +475,7 @@ con_own <- lmer(al_scale ~ (own_mortgage * affordability) +
                   no_religion + uni +
                   social_housing +
                   private_renting + own_outright + age + 
-                  soc_class + non_uk_born + gdp_growth_pct_5 +
+                  c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                   pop_sqm_2021 + pop_growth +
                   (1|la_code),
                 data = df_con, REML = FALSE)
@@ -477,7 +490,7 @@ con_soc <- lmer(al_scale ~ (social_housing * affordability) +
                   no_religion + uni +
                   own_outright +
                   private_renting + own_mortgage + age + 
-                  soc_class + non_uk_born + gdp_growth_pct_5 +
+                  c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                   pop_sqm_2021 + pop_growth +
                   (1|la_code),
                 data = df_con, REML = FALSE)
@@ -492,7 +505,7 @@ con_pri <- lmer(al_scale ~ (private_renting * affordability) +
                   no_religion + uni +
                   social_housing +
                   own_outright + own_mortgage + age + 
-                  soc_class + non_uk_born + gdp_growth_pct_5 + 
+                  c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 + 
                   pop_sqm_2021 + pop_growth +
                   (1|la_code),
                 data = df_con, REML = FALSE)
@@ -528,7 +541,7 @@ econ_multi <- lmer(lr_scale ~ white_british +
                     no_religion + uni +
                     own_outright + social_housing +
                     private_renting + own_mortgage + age + 
-                    soc_class + non_uk_born +
+                    c1_c2 + d_e + non_uk_born +
                     (1|la_code),
                   data = df_econ, REML = FALSE)
 
@@ -540,7 +553,7 @@ econ_con <- lmer(lr_scale ~ white_british +
                   no_religion + uni +
                   own_outright + social_housing +
                   private_renting + own_mortgage + age + 
-                  soc_class + non_uk_born + affordability + gdp_capita +
+                  c1_c2 + d_e + non_uk_born + affordability + gdp_capita +
                   (1|la_code),
                 data = df_econ, REML = FALSE)
 summary(econ_con)
@@ -551,7 +564,7 @@ econ_con2 <- lmer(lr_scale ~ white_british +
                    no_religion + uni +
                    own_outright + social_housing +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + affordability + gdp_growth_pct +
+                  c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct +
                    (1|la_code),
                  data = df_econ, REML = FALSE)
 summary(econ_con2)
@@ -562,7 +575,7 @@ econ_con3 <- lmer(lr_scale ~ white_british +
                    no_religion + uni +
                    own_outright + social_housing +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + affordability + gdp_growth_pct_5 +
+                   c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct_5 +
                    (1|la_code),
                  data = df_econ, REML = FALSE)
 summary(econ_con3)
@@ -573,7 +586,7 @@ econ_con4 <- lmer(lr_scale ~ white_british +
                     no_religion + uni +
                     own_outright + social_housing +
                     private_renting + own_mortgage + age + 
-                    soc_class + non_uk_born + affordability + gdp_growth_pct_5 +
+                    c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct_5 +
                     pop_2021 + pop_sqm_2021 + pop_growth +
                     (1|la_code),
                   data = df_econ, REML = FALSE)
@@ -585,12 +598,13 @@ lmer_coefs(econ_con4)
 
 # cross level interaction ------------------------------------------------------
 
-econ_out <- lmer(lr_scale ~ (own_outright * affordability) +
+econ_out <- lmer(lr_scale ~ own_outright + affordability +
+                  own_outright.affordability +
                   white_british + 
                   no_religion + uni +
                   social_housing +
                   private_renting + own_mortgage + age + 
-                  soc_class + non_uk_born + gdp_growth_pct_5 +
+                  c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                   pop_sqm_2021 + pop_growth +
                   (1|la_code),
                 data = df_econ, REML = FALSE)
@@ -605,7 +619,7 @@ econ_own <- lmer(lr_scale ~ (own_mortgage * affordability) +
                   no_religion + uni +
                   social_housing +
                   private_renting + own_outright + age + 
-                  soc_class + non_uk_born + gdp_growth_pct_5 +
+                  c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                   pop_sqm_2021 + pop_growth +
                   (1|la_code),
                 data = df_econ, REML = FALSE)
@@ -620,7 +634,7 @@ econ_soc <- lmer(lr_scale ~ (social_housing * affordability) +
                   no_religion + uni +
                   own_outright +
                   private_renting + own_mortgage + age + 
-                  soc_class + non_uk_born + gdp_growth_pct_5 + 
+                  c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 + 
                   pop_sqm_2021 + pop_growth +
                   (1|la_code),
                 data = df_econ, REML = FALSE)
@@ -635,7 +649,7 @@ econ_pri <- lmer(lr_scale ~ (private_renting * affordability) +
                   no_religion + uni +
                   social_housing +
                   own_outright + own_mortgage + age + 
-                  soc_class + non_uk_born + gdp_growth_pct_5 + 
+                  c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 + 
                   pop_sqm_2021 + pop_growth +
                   (1|la_code),
                 data = df_econ, REML = FALSE)
@@ -671,7 +685,7 @@ redist_multi <- lmer(redistSelf ~ white_british +
                      no_religion + uni +
                      own_outright + social_housing +
                      private_renting + own_mortgage + age + 
-                     soc_class + non_uk_born +
+                     c1_c2 + d_e + non_uk_born +
                      (1|la_code),
                    data = df_redist, REML = FALSE)
 
@@ -683,7 +697,7 @@ redist_con <- lmer(redistSelf ~ white_british +
                    no_religion + uni +
                    own_outright + social_housing +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + affordability + gdp_capita +
+                   c1_c2 + d_e + non_uk_born + affordability + gdp_capita +
                    (1|la_code),
                  data = df_redist, REML = FALSE)
 summary(redist_con)
@@ -694,7 +708,7 @@ redist_con2 <- lmer(redistSelf ~ white_british +
                     no_religion + uni +
                     own_outright + social_housing +
                     private_renting + own_mortgage + age + 
-                    soc_class + non_uk_born + affordability + gdp_growth_pct +
+                    c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct +
                     (1|la_code),
                   data = df_redist, REML = FALSE)
 summary(redist_con2)
@@ -705,7 +719,7 @@ redist_con3 <- lmer(redistSelf ~ white_british +
                     no_religion + uni +
                     own_outright + social_housing +
                     private_renting + own_mortgage + age + 
-                    soc_class + non_uk_born + affordability + gdp_growth_pct_5 +
+                    c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct_5 +
                     (1|la_code),
                   data = df_redist, REML = FALSE)
 summary(redist_con3)
@@ -716,7 +730,7 @@ redist_con4 <- lmer(redistSelf ~ white_british +
                       no_religion + uni +
                       own_outright + social_housing +
                       private_renting + own_mortgage + age + 
-                      soc_class + non_uk_born + affordability + 
+                      c1_c2 + d_e + non_uk_born + affordability + 
                       pop_sqm_2021 + pop_growth +
                       (1|la_code),
                     data = df_redist, REML = FALSE)
@@ -733,7 +747,7 @@ redist_out <- lmer(redistSelf ~ (own_outright * affordability) +
                    no_religion + uni +
                    social_housing +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + gdp_growth_pct_5 +
+                   c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                    pop_sqm_2021 + pop_growth +
                    (1|la_code),
                  data = df_redist, REML = FALSE)
@@ -748,7 +762,7 @@ redist_own <- lmer(redistSelf ~ (own_mortgage * affordability) +
                    no_religion + uni +
                    social_housing +
                    private_renting + own_outright + age + 
-                   soc_class + non_uk_born + gdp_growth_pct_5 +
+                   c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                    pop_sqm_2021 + pop_growth +
                    (1|la_code),
                  data = df_redist, REML = FALSE)
@@ -763,7 +777,7 @@ redist_soc <- lmer(redistSelf ~ (social_housing * affordability) +
                    no_religion + uni +
                    own_outright +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + gdp_growth_pct_5 +
+                   c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                    pop_sqm_2021 + pop_growth +
                    (1|la_code),
                  data = df_redist, REML = FALSE)
@@ -778,7 +792,7 @@ redist_pri <- lmer(redistSelf ~ (private_renting * affordability) +
                    no_religion + uni +
                    social_housing +
                    own_outright + own_mortgage + age + 
-                   soc_class + non_uk_born + gdp_growth_pct_5 + 
+                   c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 + 
                    pop_sqm_2021 + pop_growth +
                    (1|la_code),
                  data = df_redist, REML = FALSE)
@@ -822,7 +836,7 @@ immi_multi <- lmer(immigSelf ~ white_british +
                        no_religion + uni +
                        own_outright + social_housing +
                        private_renting + own_mortgage + age + 
-                       soc_class + non_uk_born +
+                       c1_c2 + d_e + non_uk_born +
                        (1|la_code),
                      data = df_immi, REML = FALSE)
 
@@ -834,7 +848,7 @@ immi_con <- lmer(immigSelf ~ white_british +
                      no_religion + uni +
                      own_outright + social_housing +
                      private_renting + own_mortgage + age + 
-                     soc_class + non_uk_born + affordability + gdp_capita +
+                     c1_c2 + d_e + non_uk_born + affordability + gdp_capita +
                      (1|la_code),
                    data = df_immi, REML = FALSE)
 summary(immi_con)
@@ -845,7 +859,7 @@ immi_con2 <- lmer(immigSelf ~ white_british +
                       no_religion + uni +
                       own_outright + social_housing +
                       private_renting + own_mortgage + age + 
-                      soc_class + non_uk_born + affordability + gdp_growth_pct +
+                      c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct +
                       (1|la_code),
                     data = df_immi, REML = FALSE)
 summary(immi_con2)
@@ -856,7 +870,7 @@ immi_con3 <- lmer(immigSelf ~ white_british +
                       no_religion + uni +
                       own_outright + social_housing +
                       private_renting + own_mortgage + age + 
-                      soc_class + non_uk_born + affordability + gdp_growth_pct_5 +
+                      c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct_5 +
                       (1|la_code),
                     data = df_immi, REML = FALSE)
 summary(immi_con3)
@@ -867,7 +881,7 @@ immi_con4 <- lmer(immigSelf ~ white_british +
                     no_religion + uni +
                     own_outright + social_housing +
                     private_renting + own_mortgage + age + 
-                    soc_class + non_uk_born + affordability +
+                    c1_c2 + d_e + non_uk_born + affordability +
                     pop_sqm_2021 + pop_growth +
                     (1|la_code),
                   data = df_immi, REML = FALSE)
@@ -879,12 +893,16 @@ lmer_coefs(immi_con4)
 
 # cross level interaction ------------------------------------------------------
 
-immi_out <- lmer(immigSelf ~ (own_outright * affordability) +
+df_immi <- df_immi %>% 
+  mutate(own_outright.affordability = own_outright * affordability)
+
+immi_out <- lmer(immigSelf ~ own_outright + affordability +
+                     own_outright.affordability +
                      white_british + 
                      no_religion + uni +
                      social_housing +
                      private_renting + own_mortgage + age + 
-                     soc_class + non_uk_born + gdp_growth_pct_5 +
+                     c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                      pop_sqm_2021 + pop_growth +
                      (1|la_code),
                    data = df_immi, REML = FALSE)
@@ -899,7 +917,7 @@ immi_own <- lmer(immigSelf ~ (own_mortgage * affordability) +
                      no_religion + uni +
                      social_housing +
                      private_renting + own_outright + age + 
-                     soc_class + non_uk_born + gdp_growth_pct_5 +
+                     c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                      pop_sqm_2021 + pop_growth +
                      (1|la_code),
                    data = df_immi, REML = FALSE)
@@ -909,12 +927,16 @@ anova(immi_con4, immi_own)
 
 lmer_coefs(immi_own)
 
-immi_soc <- lmer(immigSelf ~ (social_housing * affordability) + 
+df_immi <- df_immi %>% 
+  mutate(social_housing.affordability = social_housing * affordability)
+
+immi_soc <- lmer(immigSelf ~ social_housing + affordability +
+                     social_housing.affordability +
                      white_british + 
                      no_religion + uni +
                      own_outright +
                      private_renting + own_mortgage + age + 
-                     soc_class + non_uk_born + gdp_growth_pct_5 +
+                     c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                      pop_sqm_2021 + pop_growth +
                      (1|la_code),
                    data = df_immi, REML = FALSE)
@@ -929,7 +951,7 @@ immi_pri <- lmer(immigSelf ~ (private_renting * affordability) +
                      no_religion + uni +
                      social_housing +
                      own_outright + own_mortgage + age + 
-                     soc_class + non_uk_born + gdp_growth_pct_5 +
+                     c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
                      pop_sqm_2021 + pop_growth +
                      (1|la_code),
                    data = df_immi, REML = FALSE)
@@ -969,7 +991,7 @@ tory_multi <- glmer(tory_2019 ~ white_british +
                      no_religion + uni +
                      own_outright + social_housing +
                      private_renting + own_mortgage + age + 
-                     soc_class + non_uk_born +
+                     c1_c2 + d_e + non_uk_born +
                      (1|la_code),
                    data = df_tory, family = binomial("logit"))
 
@@ -981,7 +1003,7 @@ tory_con <- glmer(tory_2019 ~ white_british +
                    no_religion + uni +
                    own_outright + social_housing +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + affordability + gdp_capita +
+                   c1_c2 + d_e + non_uk_born + affordability + gdp_capita +
                    (1|la_code),
                  data = df_tory, family = binomial("logit"))
 summary(tory_con)
@@ -992,7 +1014,7 @@ tory_con2 <- glmer(tory_2019 ~ white_british +
                     no_religion + uni +
                     own_outright + social_housing +
                     private_renting + own_mortgage + age + 
-                    soc_class + non_uk_born + affordability + gdp_growth_pct +
+                    c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct +
                     (1|la_code),
                   data = df_tory, family = binomial("logit"))
 summary(tory_con2)
@@ -1003,7 +1025,7 @@ tory_con3 <- glmer(tory_2019 ~ white_british +
                     no_religion + uni +
                     own_outright + social_housing +
                     private_renting + own_mortgage + age + 
-                    soc_class + non_uk_born + affordability + gdp_growth_pct_5 +
+                    c1_c2 + d_e + non_uk_born + affordability + gdp_growth_pct_5 +
                     (1|la_code),
                   data = df_tory, family = binomial("logit"))
 summary(tory_con3)
@@ -1014,7 +1036,7 @@ tory_con4 <- glmer(tory_2019 ~ white_british +
                      no_religion + uni +
                      own_outright + social_housing +
                      private_renting + own_mortgage + age + 
-                     soc_class + non_uk_born + affordability + 
+                     c1_c2 + d_e + non_uk_born + affordability + 
                      pop_sqm_2021 + pop_growth +
                      (1|la_code),
                    data = df_tory, family = binomial("logit"))
@@ -1029,7 +1051,7 @@ tory_out <- glmer(tory_2019 ~ (own_outright * affordability) +
                    no_religion + uni +
                    social_housing +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + gdp_capita +
+                   c1_c2 + d_e + non_uk_born + gdp_capita +
                    pop_sqm_2021 + pop_growth +
                    (1|la_code),
                  data = df_tory, family = binomial("logit"))
@@ -1042,7 +1064,7 @@ tory_own <- glmer(tory_2019 ~ (own_mortgage * affordability) +
                    no_religion + uni +
                    social_housing +
                    private_renting + own_outright + age + 
-                   soc_class + non_uk_born + gdp_capita +
+                   c1_c2 + d_e + non_uk_born + gdp_capita +
                    pop_sqm_2021 + pop_growth +
                    (1|la_code),
                  data = df_tory, family = binomial("logit"))
@@ -1055,7 +1077,7 @@ tory_soc <- glmer(tory_2019 ~ (social_housing * affordability) +
                    no_religion + uni +
                    own_outright +
                    private_renting + own_mortgage + age + 
-                   soc_class + non_uk_born + gdp_capita +
+                   c1_c2 + d_e + non_uk_born + gdp_capita +
                    pop_sqm_2021 + pop_growth +
                    (1|la_code),
                  data = df_tory, family = binomial("logit"))
@@ -1068,7 +1090,7 @@ tory_pri <- glmer(tory_2019 ~ (private_renting * affordability) +
                    no_religion + uni +
                    social_housing +
                    own_outright + own_mortgage + age + 
-                   soc_class + non_uk_born + gdp_capita +
+                   c1_c2 + d_e + non_uk_born + gdp_capita +
                    pop_sqm_2021 + pop_growth +
                    (1|la_code),
                  data = df_tory, family = binomial("logit"))
