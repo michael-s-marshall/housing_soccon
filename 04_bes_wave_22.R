@@ -598,8 +598,7 @@ lmer_coefs(econ_con4)
 
 # cross level interaction ------------------------------------------------------
 
-econ_out <- lmer(lr_scale ~ own_outright + affordability +
-                  own_outright.affordability +
+econ_out <- lmer(lr_scale ~ (own_outright * affordability) +
                   white_british + 
                   no_religion + uni +
                   social_housing +
