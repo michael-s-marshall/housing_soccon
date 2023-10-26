@@ -1,4 +1,6 @@
-## anti immigration among social hoousing tenants ----------------------------
+pacman::p_load(patchwork)
+
+## anti immigration among outright owners ----------------------------
 
 immi_dummy <- expand.grid(
   white_british = c(mean(df_immi$white_british)),
