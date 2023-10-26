@@ -16,6 +16,7 @@ immi_dummy <- expand.grid(
   gdp_growth_pct_5 = c(mean(df_immi$gdp_growth_pct_5)),
   pop_sqm_2021 = c(mean(df_immi$pop_sqm_2021)),
   pop_growth = c(mean(df_immi$pop_growth)),
+  white_perc = c(mean(df_immi$white_perc)),
   own_outright = c(0,1),
   affordability = seq(0, 1, 0.2)
 ) %>% 

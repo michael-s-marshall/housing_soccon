@@ -253,6 +253,24 @@ df_blk <- df_blk %>%
 
 df_blk %>% map_int(~sum(is.na(.)))
 
+# ethnic diversity ----------------------------------------------------------
+
+ethnic <- read_csv("population-by-ethnicity-and-local-authority-2021.csv")
+
+ethnic <- ethnic %>% 
+  filter(Ethnicity == "White") %>%
+  rename(
+    la_code = Geography_code,
+    white_perc = Value1
+  ) %>% 
+  mutate(white_perc = white_perc / 100) %>% 
+  select(la_code, white_perc)
+
+df_blk <- df_blk %>% 
+  left_join(ethnic, by = "la_code")
+
+df_blk %>% map_int(~sum(is.na(.)))
+
 # rerunning minus scotland ---------------------------------------------------
 
 blk_multi <- lmer(blackEquality ~ white_british + 
@@ -312,7 +330,21 @@ summary(blk_con4)
 
 anova(blk_multi, blk_con4)
 
-lmer_coefs(blk_con4)
+blk_con5 <- lmer(blackEquality ~ white_british + 
+                   no_religion + uni +
+                   own_outright + social_housing +
+                   private_renting + own_mortgage + age + 
+                   c1_c2 + d_e + non_uk_born + affordability + 
+                   pop_sqm_2021 + 
+                   pop_growth + 
+                   white_perc +
+                   (1|la_code),
+                 data = df_blk, REML = FALSE)
+summary(blk_con5)
+
+anova(blk_multi, blk_con5)
+
+lmer_coefs(blk_con5)
 
 # cross level interaction ------------------------------------------------------
 
@@ -326,12 +358,13 @@ blk_out <- lmer(blackEquality ~ own_outright + affordability +
                   social_housing +
                   private_renting + own_mortgage + age + 
                   c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
-                  pop_sqm_2021 + pop_growth +
+                  pop_sqm_2021 + pop_growth + 
+                  white_perc +
                   (1|la_code),
                 data = df_blk, REML = FALSE)
 summary(blk_out)
 
-anova(blk_con4, blk_out)
+anova(blk_con5, blk_out)
 
 lmer_coefs(blk_out)
 
@@ -341,12 +374,12 @@ blk_own <- lmer(blackEquality ~ (own_mortgage * affordability) +
                   social_housing +
                   private_renting + own_outright + age + 
                   c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
-                  pop_sqm_2021 + pop_growth +
+                  pop_sqm_2021 + pop_growth + white_perc +
                   (1|la_code),
                 data = df_blk, REML = FALSE)
 summary(blk_own)
 
-anova(blk_con4, blk_own)
+anova(blk_con5, blk_own)
 
 lmer_coefs(blk_own)
 
@@ -356,7 +389,7 @@ blk_soc <- lmer(blackEquality ~ (social_housing * affordability) +
                   own_outright +
                   private_renting + own_mortgage + age + 
                   c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 +
-                  pop_sqm_2021 + pop_growth +
+                  pop_sqm_2021 + pop_growth + white_perc +
                   (1|la_code),
                 data = df_blk, REML = FALSE)
 summary(blk_soc)
@@ -371,7 +404,7 @@ blk_pri <- lmer(blackEquality ~ (private_renting * affordability) +
                   social_housing +
                   own_outright + own_mortgage + age + 
                   c1_c2 + d_e + non_uk_born + gdp_growth_pct_5 + 
-                  pop_sqm_2021 + pop_growth +
+                  pop_sqm_2021 + pop_growth + white_perc +
                   (1|la_code),
                 data = df_blk, REML = FALSE)
 summary(blk_pri)
@@ -396,6 +429,7 @@ blk_dummy <- expand.grid(
   gdp_growth_pct_5 = c(mean(df_blk$gdp_growth_pct_5)),
   pop_sqm_2021 = c(mean(df_blk$pop_sqm_2021)),
   pop_growth = c(mean(df_blk$pop_growth)),
+  white_perc = c(mean(df_blk$white_perc)),
   own_outright = c(0,1),
   affordability = seq(0, 1, 0.2)
 ) %>% 
