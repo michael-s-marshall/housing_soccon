@@ -30,30 +30,31 @@ summary.svy2lme <- function(svylme_obj){
 
 pacman::p_load(ggstance)
 
-svylme_coefs <- function(svylme_obj){
+svylme_coefs <- function(svylme_obj, var_names){
   my_summ <- summary(svylme_obj) %>% 
     filter(term != "(Intercept)") %>% 
-    mutate(sig_ul = beta + SE * qnorm(0.9975),
-           sig_ll = beta - SE * qnorm(0.9975),
-           sug_ul = beta + SE * qnorm(0.975),
-           sug_ll = beta - SE * qnorm(0.975),
-           sig_sugg = fct_relevel(
+    left_join(var_names, by = "term") %>% 
+    mutate(sig_ul = beta + SE * qnorm(0.975),
+           sig_ll = beta - SE * qnorm(0.975),
+           sig = fct_collapse(
              as.factor(sig_sugg),
-             c("Significant","Suggestive")
-           ))
+             "Significant" = c("Significant","Suggestive")) %>% 
+             fct_rev()
+           )
   
   my_summ %>% 
-    ggplot(aes(x = beta, y = term, colour = sig_sugg)) +
+    ggplot(aes(x = beta, y = fct_rev(var_name), colour = sig)) +
     geom_vline(xintercept = 0, linetype = "dashed", colour = "lightgrey", 
                linewidth = 1.5, alpha = 0.7) +
-    geom_linerangeh(aes(xmin = sig_ll, xmax = sig_ul), size = 1) +
-    geom_linerangeh(aes(xmin = sug_ll, xmax = sug_ul), size = 2) +
+    geom_linerangeh(aes(xmin = sig_ll, xmax = sig_ul), size = 1.2) +
     geom_point(shape = 21, fill = "white", size = 3.5) +
-    theme_bw() +
+    theme_minimal() +
     drop_y_gridlines() +
     labs(x = "Estimate", y = NULL, colour = NULL) +
-    theme(legend.position = "top") +
-    scale_colour_viridis_d() 
+    scale_colour_viridis_d() +
+    facet_wrap(~grouping, ncol = 1, scales = "free_y") +
+    theme(legend.position = "top",
+          strip.text = element_text(face = "bold"))
 }
 
 # loading data ----------------------------------------------------------------
@@ -444,37 +445,79 @@ df_redist %>% map_int(~sum(is.na(.)))
 df_immi %>% map_int(~sum(is.na(.)))
 df_tory %>% map_int(~sum(is.na(.)))
 
+## education data -------------------------------------------------------
+
+edu <- read_csv("census_education.csv",
+                na = c("x","NA"))
+
+edu <- edu %>% 
+  rename(la_code = `Area code`,
+         degree_pct = `Level 4 qualifications and above (percent)`) %>% 
+  select(la_code, degree_pct)
+
+df_con <- df_con %>% 
+  left_join(edu, by = "la_code") %>% 
+  mutate(degree_pct = rescale01(degree_pct, na.rm = T))
+df_econ <- df_econ %>% 
+  left_join(edu, by = "la_code") %>% 
+  mutate(degree_pct = rescale01(degree_pct, na.rm = T))
+df_redist <- df_redist %>% 
+  left_join(edu, by = "la_code") %>% 
+  mutate(degree_pct = rescale01(degree_pct, na.rm = T))
+df_immi <- df_immi %>% 
+  left_join(edu, by = "la_code") %>% 
+  mutate(degree_pct = rescale01(degree_pct, na.rm = T))
+df_tory <- df_tory %>% 
+  left_join(edu, by = "la_code") %>% 
+  mutate(degree_pct = rescale01(degree_pct, na.rm = T))
+
+df_con %>% map_int(~sum(is.na(.)))
+df_econ %>% map_int(~sum(is.na(.)))
+df_redist %>% map_int(~sum(is.na(.)))
+df_immi %>% map_int(~sum(is.na(.)))
+df_tory %>% map_int(~sum(is.na(.)))
+
 ## setting up interactions ------------------------------------------------
 
 df_con <- df_con %>% 
   mutate(own_outright.affordability = own_outright * affordability,
          own_mortgage.affordability = own_mortgage * affordability,
          social_housing.affordability = social_housing * affordability,
-         private_renting.affordability = private_renting * affordability)
+         private_renting.affordability = private_renting * affordability,
+         homeowner = ifelse(own_outright == 1|own_mortgage == 1, 1, 0),
+         homeowner.affordability = homeowner * affordability)
 
 df_econ <- df_econ %>% 
   mutate(own_outright.affordability = own_outright * affordability,
          own_mortgage.affordability = own_mortgage * affordability,
          social_housing.affordability = social_housing * affordability,
-         private_renting.affordability = private_renting * affordability)
+         private_renting.affordability = private_renting * affordability,
+         homeowner = ifelse(own_outright == 1|own_mortgage == 1, 1, 0),
+         homeowner.affordability = homeowner * affordability)
 
 df_redist <- df_redist %>% 
   mutate(own_outright.affordability = own_outright * affordability,
          own_mortgage.affordability = own_mortgage * affordability,
          social_housing.affordability = social_housing * affordability,
-         private_renting.affordability = private_renting * affordability)
+         private_renting.affordability = private_renting * affordability,
+         homeowner = ifelse(own_outright == 1|own_mortgage == 1, 1, 0),
+         homeowner.affordability = homeowner * affordability)
 
 df_immi <- df_immi %>% 
   mutate(own_outright.affordability = own_outright * affordability,
          own_mortgage.affordability = own_mortgage * affordability,
          social_housing.affordability = social_housing * affordability,
-         private_renting.affordability = private_renting * affordability)
+         private_renting.affordability = private_renting * affordability,
+         homeowner = ifelse(own_outright == 1|own_mortgage == 1, 1, 0),
+         homeowner.affordability = homeowner * affordability)
 
 df_tory <- df_tory %>% 
   mutate(own_outright.affordability = own_outright * affordability,
          own_mortgage.affordability = own_mortgage * affordability,
          social_housing.affordability = social_housing * affordability,
-         private_renting.affordability = private_renting * affordability)
+         private_renting.affordability = private_renting * affordability,
+         homeowner = ifelse(own_outright == 1|own_mortgage == 1, 1, 0),
+         homeowner.affordability = homeowner * affordability)
 
 ###############################################################################
 # authoritarianism ------------------------------------------------------------
@@ -486,19 +529,90 @@ svy_con <- svydesign(ids=~1,
 
 con_int <- svy2lme(al_scale ~ white_british +
                        social_housing.affordability +
-                       own_outright.affordability + 
+                       homeowner.affordability + 
                        no_religion + uni +
-                       own_outright + own_mortgage + social_housing +
+                       homeowner + social_housing +
                        private_renting + age + 
                        c1_c2 + d_e + non_uk_born +
                        affordability + gdp_capita +
                        pop_sqm_2021 + pop_growth + white_perc +
+                       degree_pct +
                        (1|la_code),
                      design = svy_con)
 
 summary(con_int)
 
-svylme_coefs(con_int)
+con_int2 <- lmer(al_scale ~ white_british +
+                   social_housing.affordability +
+                   homeowner.affordability + 
+                   no_religion + uni +
+                   homeowner + social_housing +
+                   private_renting + age + 
+                   c1_c2 + d_e + non_uk_born +
+                   affordability + gdp_capita +
+                   pop_sqm_2021 + pop_growth + white_perc +
+                   degree_pct +
+                   (1|la_code),
+                 data = df_con, REML = FALSE)
+
+summary(con_int2)
+
+con_int3 <- lmer(al_scale ~ white_british +
+                   #social_housing.affordability +
+                   #homeowner.affordability + 
+                   no_religion + uni +
+                   homeowner + social_housing +
+                   private_renting + age + 
+                   c1_c2 + d_e + non_uk_born +
+                   affordability + gdp_capita +
+                   pop_sqm_2021 + pop_growth + white_perc +
+                   degree_pct +
+                   (1|la_code),
+                 data = df_con, REML = FALSE)
+
+summary(con_int3)
+
+con_int4 <- lmer(al_scale ~ white_british +
+                   (social_housing * degree_pct) +
+                   (homeowner * degree_pct) + 
+                   no_religion + uni +
+                   #homeowner + social_housing +
+                   private_renting + age + 
+                   c1_c2 + d_e + non_uk_born +
+                   affordability + gdp_capita +
+                   pop_sqm_2021 + pop_growth + white_perc +
+                   #degree_pct +
+                   (1|la_code),
+                 data = df_con, REML = FALSE)
+
+summary(con_int4)
+
+AIC(con_int2)
+AIC(con_int3)
+AIC(con_int4)
+
+# var_names for coef plots
+
+plot_names <- tibble(
+  term = summary(con_int)$term[-1],
+  var_name = c("White British", "Affordability:Social housing",
+               "Affordability:Homeowner", "No religion", "University graduate",
+               "Homeowner", "Social housing", "Private renting", "Age",
+               "Social class: C1-C2", "Social class: D-E", "Non-UK born",
+               "Affordability", "GDP capita", "Population density",
+               "Population growth", "White British percentage", 
+               "Graduate percentage"),
+  grouping = c("Individual", "Housing", "Housing", "Individual",
+               "Individual", "Housing", "Housing", "Housing",
+               "Individual", "Individual", "Individual", "Individual",
+               "Housing", "Local", "Local", "Local", "Local", "Local")
+  ) %>% 
+  mutate(grouping = fct_relevel(as.factor(grouping), 
+                                c("Housing", "Individual",
+                                  "Local")))
+
+lmer_coefs(con_int2, plot_names)
+svylme_coefs(con_int, plot_names)
 
 ##############################################################################
 # immigself ------------------------------------------------------------------
@@ -515,19 +629,68 @@ svy_immi <- svydesign(ids=~1,
 
 immi_int <- svy2lme(immigSelf ~ white_british +
                       social_housing.affordability +
-                      own_outright.affordability + 
+                      homeowner.affordability + 
                       no_religion + uni +
-                      own_outright + own_mortgage + social_housing +
+                      homeowner + social_housing +
                       private_renting + age + 
                       c1_c2 + d_e + non_uk_born +
                       affordability + gdp_capita +
                       pop_sqm_2021 + pop_growth + white_perc +
+                      degree_pct +
                       (1|la_code),
                     design = svy_immi)
 
 summary(immi_int)
 
-svylme_coefs(immi_int)
+immi_int2 <- lmer(immigSelf ~ white_british +
+                    social_housing.affordability +
+                    homeowner.affordability + 
+                    no_religion + uni +
+                    homeowner + social_housing +
+                    private_renting + age + 
+                    c1_c2 + d_e + non_uk_born +
+                    affordability + gdp_capita +
+                    pop_sqm_2021 + pop_growth + white_perc +
+                    degree_pct +
+                    (1|la_code),
+                  data = df_immi, REML=FALSE)
+
+summary(immi_int2)
+
+immi_int3 <- lmer(immigSelf ~ white_british +
+                    #social_housing.affordability +
+                    #homeowner.affordability + 
+                    no_religion + uni +
+                    homeowner + social_housing +
+                    private_renting + age + 
+                    c1_c2 + d_e + non_uk_born +
+                    affordability + gdp_capita +
+                    pop_sqm_2021 + pop_growth + white_perc +
+                    degree_pct +
+                    (1|la_code),
+                  data = df_immi, REML=FALSE)
+
+summary(immi_int3)
+
+immi_int4 <- lmer(immigSelf ~ white_british +
+                    (degree_pct * social_housing) +
+                    (degree_pct * homeowner) +
+                    no_religion + uni +
+                    private_renting + age + 
+                    c1_c2 + d_e + non_uk_born +
+                    affordability + gdp_capita +
+                    pop_sqm_2021 + pop_growth + white_perc +
+                    (1|la_code),
+                  data = df_immi, REML=FALSE)
+
+summary(immi_int4)
+
+AIC(immi_int2)
+AIC(immi_int3)
+AIC(immi_int4)
+
+lmer_coefs(immi_int2, plot_names)
+svylme_coefs(immi_int, plot_names)
 
 ###############################################################################
 # econ_right dimension --------------------------------------------------------
@@ -539,19 +702,66 @@ svy_econ <- svydesign(ids=~1,
 
 econ_int <- svy2lme(lr_scale ~ white_british +
                      social_housing.affordability +
-                     own_outright.affordability + 
+                     homeowner.affordability + 
                      no_religion + uni +
-                     own_outright + own_mortgage + social_housing +
+                     homeowner + social_housing +
                      private_renting + age + 
                      c1_c2 + d_e + non_uk_born +
                      affordability + gdp_capita +
                      pop_sqm_2021 + pop_growth + white_perc +
+                     degree_pct +
                      (1|la_code),
                    design = svy_econ)
 
 summary(econ_int)
 
-svylme_coefs(econ_int)
+econ_int2 <- lmer(lr_scale ~ white_british +
+                    social_housing.affordability +
+                    homeowner.affordability + 
+                    no_religion + uni +
+                    homeowner + social_housing +
+                    private_renting + age + 
+                    c1_c2 + d_e + non_uk_born +
+                    affordability + gdp_capita +
+                    pop_sqm_2021 + pop_growth + white_perc +
+                    degree_pct +
+                    (1|la_code),
+                  data = df_econ, REML=FALSE)
+
+summary(econ_int2)
+
+econ_int3 <- lmer(lr_scale ~ white_british +
+                    no_religion + uni +
+                    homeowner + social_housing +
+                    private_renting + age + 
+                    c1_c2 + d_e + non_uk_born +
+                    affordability + gdp_capita +
+                    pop_sqm_2021 + pop_growth + white_perc +
+                    degree_pct +
+                    (1|la_code),
+                  data = df_econ, REML=FALSE)
+
+summary(econ_int3)
+
+econ_int4 <- lmer(lr_scale ~ white_british +
+                    (degree_pct * social_housing) +
+                    (degree_pct * homeowner) +
+                    no_religion + uni +
+                    private_renting + age + 
+                    c1_c2 + d_e + non_uk_born +
+                    affordability + gdp_capita +
+                    pop_sqm_2021 + pop_growth + white_perc +
+                    (1|la_code),
+                  data = df_econ, REML=FALSE)
+
+summary(econ_int4)
+
+AIC(econ_int2)
+AIC(econ_int3)
+AIC(econ_int4)
+
+lmer_coefs(econ_int2, plot_names)
+svylme_coefs(econ_int, plot_names)
 
 ###############################################################################
 # redistself ------------------------------------------------------------------
@@ -563,16 +773,82 @@ svy_redist <- svydesign(ids=~1,
 
 redist_int <- svy2lme(redistSelf ~ white_british +
                       social_housing.affordability +
-                      own_outright.affordability + 
+                      homeowner.affordability + 
                       no_religion + uni +
-                      own_outright + own_mortgage + social_housing +
+                      homeowner + social_housing +
                       private_renting + age + 
                       c1_c2 + d_e + non_uk_born +
                       affordability + gdp_capita +
                       pop_sqm_2021 + pop_growth + white_perc +
+                      degree_pct +
                       (1|la_code),
                     design = svy_redist)
 
 summary(redist_int)
 
-svylme_coefs(redist_int)
+redist_int2 <- lmer(redistSelf ~ white_british +
+                      social_housing.affordability +
+                      homeowner.affordability + 
+                      no_religion + uni +
+                      homeowner + social_housing +
+                      private_renting + age + 
+                      c1_c2 + d_e + non_uk_born +
+                      affordability + gdp_capita +
+                      pop_sqm_2021 + pop_growth + white_perc +
+                      degree_pct +
+                      (1|la_code),
+                    data = df_redist, REML=FALSE)
+
+summary(redist_int2)
+
+redist_int3 <- lmer(redistSelf ~ white_british +
+                      no_religion + uni +
+                      homeowner + social_housing +
+                      private_renting + age + 
+                      c1_c2 + d_e + non_uk_born +
+                      affordability + gdp_capita +
+                      pop_sqm_2021 + pop_growth + white_perc +
+                      degree_pct +
+                      (1|la_code),
+                    data = df_redist, REML=FALSE)
+
+summary(redist_int3)
+
+redist_int4 <- lmer(redistSelf ~ white_british +
+                      (degree_pct * social_housing) +
+                      (degree_pct * homeowner) +
+                      no_religion + uni +
+                      private_renting + age + 
+                      c1_c2 + d_e + non_uk_born +
+                      affordability + gdp_capita +
+                      pop_sqm_2021 + pop_growth + white_perc +
+                      (1|la_code),
+                    data = df_redist, REML=FALSE)
+
+summary(redist_int4)
+
+AIC(redist_int2)
+AIC(redist_int3)
+AIC(redist_int4)
+
+lmer_coefs(redist_int2, plot_names)
+svylme_coefs(redist_int, plot_names)
+
+##############################################################################
+# voting tory ---------------------------------------------------------------
+###############################################################################
+
+tory_int <- glmer(tory_2019 ~ white_british +
+                    social_housing.affordability +
+                    homeowner.affordability +
+                    no_religion + uni +
+                    homeowner + social_housing +
+                    private_renting + age +
+                    c1_c2 + d_e + non_uk_born +
+                    affordability + gdp_capita +
+                    pop_sqm_2021 + pop_growth + white_perc +
+                    degree_pct +
+                    (1|la_code),
+                  data = df_tory, family = binomial("logit"))
+
+summary(tory_int)
