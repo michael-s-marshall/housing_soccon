@@ -525,7 +525,7 @@ AIC(con_int3)
 # var_names for coef plots
 
 plot_names <- tibble(
-  term = summary(con_int)$term[-1],
+  term = names(fixef(con_int))[-1],
   var_name = c("White British", "Affordability:Social housing",
                "Affordability:Homeowner", "No religion", "University graduate",
                "Homeowner", "Social housing", "Private renting", "Age",

@@ -30,7 +30,7 @@ file_path <- "U:/housing_soccon/panel_data/"
 vars <- c("id", "immigSelf", "redistSelf", "p_edlevel", 
           "p_ethnicity", "p_religion", "p_socgrade", 
           "p_country_birth", "p_gross_household",
-          "p_housing", "age", "oslaua_code", "wt", "year")
+          "p_housing", "age", "oslaua_code","gor","wt", "year")
 
 w10 <- read_dta(file = str_c(file_path, data_files[1]))
 w10$year <- wave_year[1]
@@ -64,6 +64,8 @@ w22 <- w22 %>%
 
 df <- bind_rows(w10, w11, w14, w17, w20, w22)
 
+rm(w10, w11, w14, w17, w20, w22)
+
 # filtering out those without la -------------------------------------------------------
 
 df <- df %>% filter(oslaua_code!= "")
@@ -91,6 +93,10 @@ three_waves <- df %>%
   mutate(wave_n = select(., in_2016:in_2021) %>%  rowSums(na.rm = T)) %>% 
   filter(wave_n >= 3) %>% 
   arrange(id, year)
+
+three_waves <- three_waves %>% 
+  arrange(id, year) %>% 
+  mutate(gor = as_factor(gor))
 
 # affordability ---------------------------------------------------------
 
@@ -276,7 +282,18 @@ three_waves$age <- scale_this(three_waves$age)
 three_waves %>% 
   map_int(~sum(is.na(.)))
 
-three_waves %>% summarise(mean_age = mean(age), sd_age = sd(age))
+three_waves %>% 
+  summarise(mean_age = mean(age, na.rm = T),
+            sd_age = sd(age, na.rm = T))
+
+## immi null ------------------------------------------------------------------
+
+immi_null <- lmer(immigSelf ~ (1|id) + (1|gor) + 
+                    (1|gor:oslaua_code),
+                  data = three_waves, REML=FALSE)
+
+summary(immi_null)
+summ(immi_null, r.squared = FALSE)
 
 ## immig longitudinal ---------------------------------------------------------
 

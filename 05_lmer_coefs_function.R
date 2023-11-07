@@ -4,12 +4,12 @@ lmer_coefs <- function(lmer_obj, var_names){
   confint(lmer_obj) %>% 
     as_tibble() %>% 
     bind_cols(
-      tibble(para = c(".sig01",".sigma",names(fixef(lmer_obj))))
+      tibble(term = c(".sig01",".sigma",names(fixef(lmer_obj))))
     ) %>% 
     bind_cols(tibble(estimate = c(NA, NA, fixef(lmer_obj)))) %>% 
     na.omit() %>% 
     filter(para != "(Intercept)") %>%
-    left_join(var_names, by = c("para" = "term")) %>% 
+    left_join(var_names, by = "term") %>% 
     mutate(
       sig = `2.5 %` > 0 | `97.5 %` < 0,
       sig = ifelse(sig == T, "Significant","Non-significant"),
