@@ -1,0 +1,71 @@
+immigration ---------------------------------------------------------------------------------
+
+random effects null model
+Random effects:
+ Groups                  Name        Variance Std.Dev.
+ id                      (Intercept) 6.05425  2.4605  
+ region_code:oslaua_code (Intercept) 0.13583  0.3685  
+ region_code             (Intercept) 0.07359  0.2713  
+ Residual                            1.76189  1.3274  
+Number of obs: 119984, groups:  id, 51021; region_code:oslaua_code, 330; region_code, 10
+
+Random effects with sh and affordability mean interaction
+Random effects:
+ Groups                  Name        Variance Std.Dev.
+ id                      (Intercept) 5.126596 2.26420 
+ region_code:oslaua_code (Intercept) 0.021460 0.14649 
+ region_code             (Intercept) 0.007837 0.08853 
+ Residual                            1.704515 1.30557 
+Number of obs: 119984, groups:  id, 51021; region_code:oslaua_code, 330; region_code, 10
+
+Random effects with sh and ho affordability mean interaction
+Random effects:
+ Groups                  Name        Variance Std.Dev.
+ id                      (Intercept) 5.125679 2.26400 
+ region_code:oslaua_code (Intercept) 0.021025 0.14500 
+ region_code             (Intercept) 0.007825 0.08846 
+ Residual                            1.704550 1.30558 
+Number of obs: 119984, groups:  id, 51021; region_code:oslaua_code, 330; region_code, 10
+
+Random effects with principal component 1 interactions
+Random effects:
+ Groups          Name        Variance Std.Dev.
+ id              (Intercept) 5.13114  2.2652  
+ gor:oslaua_code (Intercept) 0.03560  0.1887  
+ gor             (Intercept) 0.02446  0.1564  
+ Residual                    1.70470  1.3056  
+Number of obs: 119984, groups:  id, 51021; gor:oslaua_code, 373; gor, 11
+
+AIC no interaction = 		504530.4
+AIC mean sh interaction = 	504519.2
+AIC mean two interactions = 	504512.6
+AIC for principal components =  504620.9
+
+(0.13583  - 0.021025) / 0.13583
+
+redistribution -------------------------------------------------------------------------------
+
+random effects null model
+Random effects:
+ Groups                  Name        Variance Std.Dev.
+ id                      (Intercept) 5.86560  2.4219  
+ region_code:oslaua_code (Intercept) 0.08423  0.2902  
+ region_code             (Intercept) 0.04300  0.2074  
+ Residual                            3.46674  1.8619  
+Number of obs: 115356, groups:  id, 50038; region_code:oslaua_code, 330; region_code, 10
+
+random effects with fixed effects, no interaction
+Random effects:
+ Groups                  Name        Variance Std.Dev.
+ id                      (Intercept) 5.37432  2.3183  
+ region_code:oslaua_code (Intercept) 0.02078  0.1442  
+ region_code             (Intercept) 0.01782  0.1335  
+ Residual                            3.48182  1.8660  
+Number of obs: 115356, groups:  id, 50038; region_code:oslaua_code, 330; region_code, 10
+
+AIC no interaction = 		542258.0
+AIC mean sh interaction = 	542259.9
+AIC mean two interactions = 	542261.5
+AIC for principal components = 	542359.3
+
+(0.08423 - 0.02078) / 0.08423

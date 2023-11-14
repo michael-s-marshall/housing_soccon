@@ -1,14 +1,15 @@
 pacman::p_load(ggstance)
 
-lmer_coefs <- function(lmer_obj, var_names){
-  confint(lmer_obj) %>% 
+lmer_coefs <- function(lmer_obj, chosen_method, var_names){
+  set.seed(123)
+  confint(lmer_obj, method = chosen_method) %>% 
     as_tibble() %>% 
     bind_cols(
-      tibble(term = c(".sig01",".sigma",names(fixef(lmer_obj))))
+      tibble(term = c(".sig01",".sig02",".sigma",names(fixef(lmer_obj))))
     ) %>% 
-    bind_cols(tibble(estimate = c(NA, NA, fixef(lmer_obj)))) %>% 
+    bind_cols(tibble(estimate = c(NA, NA, NA, fixef(lmer_obj)))) %>% 
     na.omit() %>% 
-    filter(para != "(Intercept)") %>%
+    filter(term != "(Intercept)") %>%
     left_join(var_names, by = "term") %>% 
     mutate(
       sig = `2.5 %` > 0 | `97.5 %` < 0,
@@ -28,4 +29,3 @@ lmer_coefs <- function(lmer_obj, var_names){
           strip.text = element_text(face = "bold")) +
     scale_colour_manual(values = c("black","grey65")) 
 }
-

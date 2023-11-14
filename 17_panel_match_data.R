@@ -91,7 +91,7 @@ three_waves <- df %>%
     in_2021 = ifelse(id %in% ids_2021, 1, 0)
   ) %>% 
   mutate(wave_n = select(., in_2016:in_2021) %>%  rowSums(na.rm = T)) %>% 
-  filter(wave_n >= 3) %>% 
+  #filter(wave_n >= 3) %>% 
   arrange(id, year)
 
 three_waves <- three_waves %>% 
@@ -116,26 +116,6 @@ three_waves <- three_waves %>%
   left_join(afford, by = c("oslaua_code","year")) %>% 
   filter(!is.na(affordability))
 
-# gdp data --------------------------------------------------------------------
-
-gdp <- read_csv("gdp_per_capita.csv")
-
-gdp <- gdp %>% 
-  rename(oslaua_code = `LA code`) %>%
-  pivot_longer(
-    cols = all_of(year_range),
-    names_to = "year",
-    values_to = "gdp_capita"
-  ) %>% 
-  mutate(year = parse_double(year)) %>% 
-  select(oslaua_code, year, gdp_capita)
-
-three_waves <- three_waves %>% 
-  left_join(gdp, by = c("oslaua_code", "year"))
-
-three_waves %>% 
-  map_int(~sum(is.na(.)))
-
 # population data -----------------------------------------------------------
 
 load("pop.RData")
@@ -149,18 +129,39 @@ three_waves <- three_waves %>%
 three_waves %>% 
   map_int(~sum(is.na(.)))
 
-## education data -------------------------------------------------------
+# age data -------------------------------------------------------------
 
-edu <- read_csv("census_education.csv",
-                na = c("x","NA"))
-
-edu <- edu %>% 
-  rename(oslaua_code = `Area code`,
-         degree_pct = `Level 4 qualifications and above (percent)`) %>% 
-  select(oslaua_code, degree_pct)
+load("las_by_age.RData")
 
 three_waves <- three_waves %>% 
-  left_join(edu, by = "oslaua_code")
+  left_join(las_by_age, by = c("oslaua_code","year"))  %>% 
+  mutate(over_65_pct = ifelse(is.na(over_65_pct_post19),
+                              over_65_pct_pre19, 
+                              over_65_pct_post19),
+         under_15_pct = ifelse(is.na(under_15_pct_post19),
+                               under_15_pct_pre19, 
+                               under_15_pct_post19))
+
+three_waves %>% 
+  map_int(~sum(is.na(.)))
+
+## education data -------------------------------------------------------
+
+#edu <- read_csv("census_education.csv",
+#                na = c("x","NA"))
+
+#edu <- edu %>% 
+#  rename(oslaua_code = `Area code`,
+#         degree_pct = `Level 4 qualifications and above (percent)`) %>% 
+#  select(oslaua_code, degree_pct)
+
+#three_waves <- three_waves %>% 
+#  left_join(edu, by = "oslaua_code")
+
+load("edu_full.RData")
+
+three_waves <- three_waves %>% 
+  left_join(edu_full, by = c("oslaua_code","year"))
 
 three_waves %>% map_int(~sum(is.na(.)))
 
@@ -186,7 +187,8 @@ within_between <- function(df, group_var, mutate_vars){
 }
 
 three_waves <- three_waves %>% 
-  within_between(oslaua_code, c(affordability, gdp_capita, pop_density))
+  within_between(oslaua_code, c(affordability, pop_density,
+                                over_65_pct, under_15_pct, degree_pct))
 
 scale_this <- function(x){
   (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
@@ -196,7 +198,7 @@ to_scale <- three_waves %>%
   select(contains("within")|contains("mean")) %>% 
   names()
 
-to_scale <- c(to_scale, "degree_pct")
+# to_scale <- c(to_scale, "degree_pct")
 
 three_waves[to_scale] <- three_waves[to_scale] %>%
   map_df(scale_this)
@@ -286,11 +288,77 @@ three_waves %>%
   summarise(mean_age = mean(age, na.rm = T),
             sd_age = sd(age, na.rm = T))
 
+# removing don't knows -------------------------------------------------------
+
+three_waves %>% 
+  count(immigSelf)
+
+three_waves$immigSelf[three_waves$immigSelf == 9999] <- NA
+
+three_waves %>% 
+  count(immigSelf)
+
+three_waves %>% 
+  count(redistSelf)
+
+three_waves$redistSelf[three_waves$redistSelf == 9999] <- NA
+
+three_waves %>% 
+  count(redistSelf)
+
+# collinearity between degrees and affordability -----------------------------
+
+afford_degrees <- three_waves %>% 
+  filter(year == 2021) %>%
+  select(degree_pct, affordability) %>% 
+  unique()
+
+afford_degrees %>% 
+  ggplot(aes(x = degree_pct, y = affordability)) +
+  geom_point(alpha = 1/3) +
+  geom_smooth(method = "lm")
+
+cor.test(afford_degrees$degree_pct, afford_degrees$affordability)
+
+afford_degree_lm <- lm(affordability ~ degree_pct,
+                       data = afford_degrees)
+
+summary(afford_degree_lm)
+par(mfrow = c(2,2))
+plot(afford_degree_lm)
+
+# modelling immigration - producing dataset -----------------------------------
+
+three_waves %>% 
+  select(immigSelf, affordability_within, affordability_mean,
+         pop_density_within, pop_density_mean,
+         over_65_pct_within, over_65_pct_mean, under_15_pct_within, 
+         under_15_pct_mean, degree_pct_within, degree_pct_mean, uni, white, 
+         no_religion, c1_c2, d_e, non_uk_born, homeowner, 
+         private_renting, social_housing, year_c, oslaua_code,
+         gor, id) %>% 
+  map_int(~sum(is.na(.)))
+
+immig_df <- three_waves %>% 
+  select(immigSelf, affordability_within, affordability_mean,
+         pop_density_within, pop_density_mean,
+         over_65_pct_within, over_65_pct_mean, under_15_pct_within, 
+         under_15_pct_mean, degree_pct_within, degree_pct_mean, uni, white, 
+         no_religion, c1_c2, d_e, non_uk_born, homeowner, 
+         private_renting, social_housing, year_c, oslaua_code,
+         gor, id) %>% 
+  na.omit()
+
+nrow(three_waves) - nrow(immig_df)
+
 ## immi null ------------------------------------------------------------------
+
+immig_df <- immig_df %>% 
+  mutate(immigSelf = 10 - immigSelf)
 
 immi_null <- lmer(immigSelf ~ (1|id) + (1|gor) + 
                     (1|gor:oslaua_code),
-                  data = three_waves, REML=FALSE)
+                  data = immig_df, REML=FALSE)
 
 summary(immi_null)
 summ(immi_null, r.squared = FALSE)
@@ -299,26 +367,135 @@ summ(immi_null, r.squared = FALSE)
 
 immi_long <- lmer(immigSelf ~ affordability_within + affordability_mean +
                     pop_density_within + pop_density_mean +
-                    gdp_capita_within + gdp_capita_mean + degree_pct +
+                    over_65_pct_within + over_65_pct_mean +
+                    under_15_pct_within + under_15_pct_mean +
+                    degree_pct_within + degree_pct_mean +
                     uni + white + no_religion + c1_c2 + d_e + non_uk_born +
                     homeowner + private_renting +
                     social_housing +
-                    year_c + (1|id) + (1|oslaua_code),
-                  data = three_waves, REML = FALSE)
+                    year_c + (1|id) + (1|gor) + (1|gor:oslaua_code),
+                  data = immig_df, REML = FALSE)
 
 summary(immi_long)
-summ(immi_long)
+summ(immi_long, r.squared=F)
+
+# immig cross level interaction ---------------------------------------------
+
+immi_cint <- lmer(immigSelf ~ (affordability_within * social_housing) +
+                    affordability_mean +
+                    pop_density_within + pop_density_mean +
+                    over_65_pct_within + over_65_pct_mean +
+                    under_15_pct_within + under_15_pct_mean +
+                    degree_pct_within + degree_pct_mean +
+                    uni + white + no_religion + c1_c2 + d_e + non_uk_born +
+                    homeowner + private_renting +
+                    #social_housing +
+                    year_c + (1|id) + (1|gor) + (1|gor:oslaua_code),
+                  data = immig_df, REML = FALSE)
+
+summary(immi_cint)
+summ(immi_cint, r.squared=F)
+
+# immig cross level interaction ---------------------------------------------
+
+immi_cint2 <- lmer(immigSelf ~ (affordability_mean * social_housing) +
+                     affordability_within +
+                     pop_density_within + pop_density_mean +
+                     over_65_pct_within + over_65_pct_mean +
+                     under_15_pct_within + under_15_pct_mean + 
+                     degree_pct_within + degree_pct_mean +
+                     uni + white + no_religion + c1_c2 + d_e + non_uk_born +
+                     homeowner + private_renting +
+                     #social_housing +
+                     year_c + (1|id) + (1|gor) + (1|gor:oslaua_code),
+                   data = immig_df, REML = FALSE)
+
+summary(immi_cint2)
+summ(immi_cint2, r.squared=F)
+
+(0.14518  - 0.02449) / 0.14518  # 83.1% of LA variance explained by level 2 fixed effects
+
+# immig cross level interaction: social housing and homeowners ----------------
+
+immi_cint3 <- lmer(immigSelf ~ (affordability_mean * social_housing) +
+                     (affordability_mean * homeowner) +
+                     affordability_within +
+                     pop_density_within + pop_density_mean +
+                     over_65_pct_within + over_65_pct_mean +
+                     under_15_pct_within + under_15_pct_mean + 
+                     degree_pct_within + degree_pct_mean +
+                     uni + white + no_religion + c1_c2 + d_e + non_uk_born +
+                     #homeowner + 
+                     private_renting + #social_housing +
+                     year_c + (1|id) + (1|gor) + (1|gor:oslaua_code),
+                   data = immig_df, REML = FALSE)
+
+summary(immi_cint3)
+summ(immi_cint3, r.squared=F)
+
+(0.14518  - 0.023923) / 0.14518  # 83.5% of LA variance explained by level 2 fixed effects
 
 # redist longitudinal -------------------------------------------------------
 
+redist_df <- three_waves %>% 
+  select(redistSelf, affordability_within, affordability_mean,
+         pop_density_within, pop_density_mean,
+         over_65_pct_within, over_65_pct_mean, under_15_pct_within, 
+         under_15_pct_mean, degree_pct_within, degree_pct_mean, uni, white, 
+         no_religion, c1_c2, d_e, non_uk_born, homeowner, 
+         private_renting, social_housing, year_c, oslaua_code,
+         gor, id) %>% 
+  na.omit()
+
+redist_null <- lmer(redistSelf ~ (1|id) + (1|gor) + (1|gor:oslaua_code),
+                    data = redist_df, REML = FALSE)
+
+summary(redist_null)
+summ(redist_null, r.squared=F)
+
 redist_long <- lmer(redistSelf ~ affordability_within + affordability_mean +
                       pop_density_within + pop_density_mean +
-                      gdp_capita_within + gdp_capita_mean + degree_pct +
+                      over_65_pct_within + over_65_pct_mean +
+                      under_15_pct_within + under_15_pct_mean + 
+                      degree_pct_within + degree_pct_mean +
                       uni + white + no_religion + c1_c2 + d_e + non_uk_born +
                       homeowner + private_renting +
                       social_housing +
-                      year_c + (1|id) + (1|oslaua_code),
-                    data = three_waves, REML = FALSE)
+                      year_c + (1|id) + (1|gor) + (1|gor:oslaua_code),
+                    data = redist_df, REML = FALSE)
 
 summary(redist_long)
-summ(redist_long)
+summ(redist_long, r.squared=F)
+
+(0.08718 - 0.02008) / 0.08696 # 77.2% level two variation explained by fixed effects
+
+redist_cint <- lmer(redistSelf ~ (affordability_mean * social_housing) +
+                      affordability_within + 
+                      pop_density_within + pop_density_mean +
+                      over_65_pct_within + over_65_pct_mean +
+                      under_15_pct_within + under_15_pct_mean + 
+                      degree_pct_within + degree_pct_mean +
+                      uni + white + no_religion + c1_c2 + d_e + non_uk_born +
+                      homeowner + private_renting +
+                      #social_housing +
+                      year_c + (1|id) + (1|gor) + (1|gor:oslaua_code),
+                    data = redist_df, REML = FALSE)
+
+summary(redist_cint)
+summ(redist_cint, r.squared=F)
+
+redist_cint2 <- lmer(redistSelf ~ (affordability_mean * homeowner) +
+                      (affordability_mean * social_housing) +
+                      affordability_within + 
+                      pop_density_within + pop_density_mean +
+                      over_65_pct_within + over_65_pct_mean +
+                      under_15_pct_within + under_15_pct_mean + 
+                      degree_pct_within + degree_pct_mean +
+                      uni + white + no_religion + c1_c2 + d_e + non_uk_born +
+                      #homeowner + 
+                      private_renting + # social_housing +
+                      year_c + (1|id) + (1|gor) + (1|gor:oslaua_code),
+                    data = redist_df, REML = FALSE)
+
+summary(redist_cint2)
+summ(redist_cint2, r.squared=F)
