@@ -232,6 +232,23 @@ df <- df %>%
 
 rm(indus_2016, indus_2017, indus_2018, indus_2019, indus_2020, indus_2021)
 
+# median earnings ----------------------------------------------------------
+
+earnings <- read_csv("median_earnings.csv", na = c(":",""))
+
+earnings <- earnings %>% 
+  rename(oslaua_code = `Local authority code`) %>%
+  pivot_longer(
+    cols = `2016`:`2021`,
+    names_to = "year",
+    values_to = "earnings"
+  ) %>% 
+  select(oslaua_code, year, earnings) %>% 
+  mutate(year = parse_double(year))
+
+df <- df %>% 
+  left_join(earnings, by = c("oslaua_code","year"))
+
 ## centering, scaling and between-within calculations LA vars -------------------
 
 # centering year
@@ -255,7 +272,8 @@ within_between <- function(df, group_var, mutate_vars){
 
 df <- df %>% 
   within_between(oslaua_code, c(affordability, gdp_capita, pop_density,
-                                over_65_pct, under_15_pct, manuf_pct))
+                                over_65_pct, under_15_pct, manuf_pct,
+                                earnings))
 
 scale_this <- function(x){
   (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
@@ -393,6 +411,7 @@ df %>%
          over_65_pct_within, over_65_pct_mean, under_15_pct_within, 
          under_15_pct_mean, degree_pct,
          gdp_capita_mean, gdp_capita_within, manuf_pct_mean, manuf_pct_within,
+         earnings_within, earnings_mean,
          uni, white, no_religion, c1_c2, d_e, non_uk_born, homeowner, 
          private_renting, social_housing, year_c, oslaua_code,
          gor, region_code, id) %>% 
@@ -416,6 +435,9 @@ missing_las(df, degree_pct)
 # region NAs are Scotland
 missing_las(df, region_code)
 
+# NAs for earnings are Scotland and City of London
+missing_las(df, earnings)
+
 # modelling immigration - producing dataset -----------------------------------
 
 immig_df <- df %>% 
@@ -423,6 +445,7 @@ immig_df <- df %>%
          pop_density_within, pop_density_mean,
          over_65_pct_within, over_65_pct_mean, under_15_pct_within, 
          under_15_pct_mean, degree_pct,
+         earnings_within, earnings_mean,
          gdp_capita_mean, gdp_capita_within, manuf_pct_mean, manuf_pct_within,
          uni, white, no_religion, c1_c2, d_e, non_uk_born, homeowner, 
          private_renting, social_housing, year_c, oslaua_code,
@@ -452,6 +475,7 @@ immi_long <- lmer(immigSelf ~ affordability_within + affordability_mean +
                     degree_pct + 
                     gdp_capita_within + gdp_capita_mean +
                     manuf_pct_within + manuf_pct_mean +
+                    earnings_within + earnings_mean +
                     uni + white + no_religion + c1_c2 + d_e + non_uk_born +
                     homeowner + private_renting +
                     social_housing +
@@ -471,6 +495,7 @@ immi_cint <- lmer(immigSelf ~ (affordability_mean * social_housing) +
                      degree_pct + 
                      gdp_capita_within + gdp_capita_mean +
                      manuf_pct_within + manuf_pct_mean +
+                     earnings_within + earnings_mean +
                      uni + white + no_religion + c1_c2 + d_e + non_uk_born +
                      homeowner + private_renting +
                      #social_housing +
@@ -491,6 +516,7 @@ immi_cint2 <- lmer(immigSelf ~ (affordability_mean * social_housing) +
                      degree_pct + 
                      gdp_capita_within + gdp_capita_mean +
                      manuf_pct_within + manuf_pct_mean +
+                     earnings_within + earnings_mean +
                      uni + white + no_religion + c1_c2 + d_e + non_uk_born +
                      #homeowner + 
                      private_renting + #social_housing +
@@ -507,6 +533,7 @@ redist_df <- df %>%
          pop_density_within, pop_density_mean,
          over_65_pct_within, over_65_pct_mean, under_15_pct_within, 
          under_15_pct_mean, degree_pct, 
+         earnings_within, earnings_mean,
          gdp_capita_mean, gdp_capita_within, manuf_pct_mean, manuf_pct_within,
          uni, white, no_religion, c1_c2, d_e, non_uk_born, homeowner, 
          private_renting, social_housing, year_c, oslaua_code,
@@ -532,6 +559,7 @@ redist_long <- lmer(redistSelf ~ affordability_within + affordability_mean +
                       degree_pct + 
                       gdp_capita_within + gdp_capita_mean +
                       manuf_pct_within + manuf_pct_mean +
+                      earnings_within + earnings_mean +
                       uni + white + no_religion + c1_c2 + d_e + non_uk_born +
                       homeowner + private_renting +
                       social_housing +
@@ -551,6 +579,7 @@ redist_cint <- lmer(redistSelf ~ (affordability_mean * social_housing) +
                       degree_pct + 
                       gdp_capita_within + gdp_capita_mean +
                       manuf_pct_within + manuf_pct_mean +
+                      earnings_within + earnings_mean +
                       uni + white + no_religion + c1_c2 + d_e + non_uk_born +
                       homeowner + private_renting +
                       #social_housing +
@@ -569,6 +598,7 @@ redist_cint2 <- lmer(redistSelf ~ (affordability_mean * homeowner) +
                        degree_pct + 
                        gdp_capita_within + gdp_capita_mean +
                        manuf_pct_within + manuf_pct_mean +
+                       earnings_within + earnings_mean +
                        uni + white + no_religion + c1_c2 + d_e + non_uk_born +
                        #homeowner + 
                        private_renting + # social_housing +
