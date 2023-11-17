@@ -351,6 +351,35 @@ df_immi %>% map_int(~sum(is.na(.)))
 df_redist %>% map_int(~sum(is.na(.)))
 df_tory %>% map_int(~sum(is.na(.)))
 
+# median earnings ----------------------------------------------------------
+
+earnings <- read_csv("median_earnings.csv", na = c(":",""))
+
+earnings <- earnings %>% 
+  rename(la_code = `Local authority code`,
+         median_earnings = `2021`) %>% 
+  select(la_code, median_earnings)
+
+df_immi <- df_immi %>% 
+  left_join(earnings, by = "la_code")
+df_redist <- df_redist %>% 
+  left_join(earnings, by = "la_code")
+df_tory <- df_tory %>% 
+  left_join(earnings, by = "la_code")
+
+# manual entry for city of London using 2018 data
+#df_immi$median_earnings[df_immi$la_code == "E09000001"] <- 53857
+#df_redist$median_earnings[df_redist$la_code == "E09000001"] <- 53857
+#df_tory$median_earnings[df_tory$la_code == "E09000001"] <- 53857
+
+df_immi %>% map_int(~sum(is.na(.)))
+df_redist %>% map_int(~sum(is.na(.)))
+df_tory %>% map_int(~sum(is.na(.)))
+
+df_immi <- df_immi %>% na.omit()
+df_redist <- df_redist %>% na.omit()
+df_tory <- df_tory %>% na.omit()
+
 # region --------------------------------------------------------------------
 
 region <- read_csv("lasregionew2021lookup.csv")
@@ -370,7 +399,7 @@ df_tory <- df_tory %>%
 # scaling variables --------------------------------------------------------
 
 # renaming originals
-level_twos <- df_immi %>% select(affordability:manuf_pct) %>% names()
+level_twos <- df_immi %>% select(affordability:median_earnings) %>% names()
 rename_raw <- function(df, vars){
   df <- df %>% 
     mutate(across({{vars}}, \(x) x = x, .names = "{.col}_raw"))
@@ -397,7 +426,7 @@ df_tory[level_twos] <- df_tory[level_twos] %>%
 redist_fit <- lm(redistSelf ~ 1, data = df_redist)
 
 # lmer null model
-redist_lmer <- lmer(redistSelf ~ (1|la_code), data = df_redist)
+redist_lmer <- lmer(redistSelf ~ (1|la_code), REML = FALSE, data = df_redist)
 
 logLik(redist_fit)
 logLik(redist_lmer)
@@ -432,7 +461,7 @@ redist_con <- lmer(redistSelf ~ white_british +
                      pop_sqm_2021 + white_perc + 
                      over_65_pct + under_15_pct + 
                      degree_pct + 
-                     manuf_pct +
+                     manuf_pct + median_earnings +
                      (1|region_code) + (1|region_code:la_code),
                    data = df_redist, REML = FALSE)
 
@@ -453,6 +482,7 @@ redist_int <- lmer(redistSelf ~ (social_housing * affordability) +
                      over_65_pct + under_15_pct + 
                      degree_pct + 
                      manuf_pct +
+                     median_earnings +
                      (1|region_code) + (1|region_code:la_code),
                    data = df_redist, REML = FALSE)
 summary(redist_int)
@@ -510,7 +540,7 @@ immi_con <- lmer(immigSelf ~ white_british +
                    pop_sqm_2021 + white_perc + 
                    over_65_pct + under_15_pct + 
                    degree_pct + 
-                   manuf_pct +
+                   manuf_pct + median_earnings +
                    (1|region_code) + (1|region_code:la_code),
                  data = df_immi, REML = FALSE)
 summary(immi_con)
@@ -529,7 +559,7 @@ immi_int <- lmer(immigSelf ~ (social_housing * affordability) +
                    pop_sqm_2021 + white_perc + 
                    over_65_pct + under_15_pct + 
                    degree_pct + 
-                   manuf_pct +
+                   manuf_pct + median_earnings +
                    (1|region_code) + (1|region_code:la_code),
                  data = df_immi, REML = FALSE)
 summary(immi_int)
@@ -583,7 +613,7 @@ tory_con <- glmer(tory_2019 ~ white_british +
                     pop_sqm_2021 + white_perc + 
                     over_65_pct + under_15_pct + 
                     degree_pct + 
-                    manuf_pct +
+                    manuf_pct + median_earnings +
                     (1|region_code) + (1|region_code:la_code),
                   data = df_tory, family = binomial("logit"))
 summary(tory_con)
@@ -602,7 +632,7 @@ tory_int <- glmer(tory_2019 ~ (social_housing * affordability) +
                     pop_sqm_2021 + white_perc + 
                     over_65_pct + under_15_pct + 
                     degree_pct + 
-                    manuf_pct +
+                    manuf_pct + median_earnings +
                     (1|region_code) + (1|region_code:la_code),
                   data = df_tory, family = binomial("logit"))
 summary(tory_int)
