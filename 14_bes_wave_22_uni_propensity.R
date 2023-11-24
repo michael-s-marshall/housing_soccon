@@ -97,10 +97,12 @@ df$edu_20plus[is.na(df$p_education_age)] <- NA
 df %>% count(edu_20plus, p_education_age)
 
 uni_df <- df %>% 
-  select(uni, white_british, no_religion, c1_c2, d_e, own_mortgage,
+  select(uni, white_british, c1_c2, d_e, own_mortgage,
          own_outright, private_renting, social_housing, non_uk_born,
-         non_voter, not_disabled, broadsheet, tabloid, full_time,
-         edu_20plus) %>% 
+         non_voter, broadsheet, tabloid, full_time,
+         edu_20plus, age_raw) %>%
+  mutate(age_sq = age_raw ^ 2,
+         age_cub = age_raw ^ 3) %>% 
   na.omit()
 
 uni_df <- uni_df %>% 
@@ -117,8 +119,7 @@ uni_df_test <- uni_df_test %>% select(-id)
 uni_logit <- glm(uni ~ ., data = uni_df_train, family = "binomial")
 summary(uni_logit)
 
-uni_df_train <- uni_df_train %>% 
-  select(-no_religion, -not_disabled)
+uni_df_train <- uni_df_train %>% select(-full_time)
 
 uni_logit <- glm(uni ~ ., data = uni_df_train, family = "binomial")
 summary(uni_logit)
@@ -133,23 +134,47 @@ test_preds <- ifelse(test_probs > 0.5, 1, 0)
 table(uni_df_test$uni, test_preds)
 mean(uni_df_test$uni == test_preds)
 
+df <- df %>% 
+  mutate(age_sq = age_raw ^ 2,
+         age_cub = age_raw ^ 3)
+
 df$uni_propensity <- predict(uni_logit, type = "response", newdata = df)
 summary(df$uni_propensity)
 
 # datasets -------------------------------------------------------------------
 
 df_redist <- df %>% 
-  select(redistSelf, la_code, white_british, no_religion,
+  select(redistSelf, la_code, white_british, no_religion, uni,
          c1_c2, d_e, social_housing, private_renting, age, 
          age_raw, non_uk_born, homeowner, uni_propensity) %>% 
-  na.omit()
+  mutate(uni_pred = ifelse(uni_propensity > 0.5, 1, 0),
+         uni_full = ifelse(is.na(uni), uni_pred, uni))
+
+df_redist %>% count(uni, uni_full, uni_pred)
+
+to_drop <- df_redist %>% select(-uni, -uni_propensity, -uni_pred) %>% names()
+
+df_redist <- df_redist %>% 
+  drop_na(all_of(to_drop))
+
+df_redist %>% map_int(~sum(is.na(.)))
 
 # df_immi
 df_immi <- df %>% 
-  select(immigSelf, la_code, white_british, no_religion,
+  select(immigSelf, la_code, white_british, no_religion, uni,
          c1_c2, d_e, social_housing, private_renting, age, 
          age_raw, non_uk_born, homeowner, uni_propensity) %>% 
-  na.omit()
+  mutate(uni_pred = ifelse(uni_propensity > 0.5, 1, 0),
+         uni_full = ifelse(is.na(uni), uni_pred, uni))
+
+df_immi %>% count(uni, uni_full, uni_pred)
+
+to_drop2 <- df_immi %>% select(-uni, -uni_propensity, -uni_pred) %>% names()
+
+df_immi <- df_immi %>% 
+  drop_na(all_of(to_drop2))
+
+df_immi %>% map_int(~sum(is.na(.)))
 
 # affordability data ---------------------------------------------------------
 
@@ -329,7 +354,7 @@ df_immi[level_twos] <- df_immi[level_twos] %>%
 # multivariate ------------------------------------------------
 
 redist_multi <- lmer(redistSelf ~ white_british + 
-                       no_religion + uni_propensity +
+                       no_religion + uni_full +
                        social_housing + private_renting + 
                        homeowner + age + 
                        c1_c2 + d_e + non_uk_born +
@@ -341,7 +366,7 @@ summary(redist_multi)
 # including level 2 predictors  ------------------------------
 
 redist_con <- lmer(redistSelf ~ white_british + 
-                     no_religion + uni_propensity +
+                     no_religion + uni_full +
                      social_housing + private_renting + 
                      homeowner + age + 
                      c1_c2 + d_e + non_uk_born + 
@@ -362,7 +387,7 @@ anova(redist_multi, redist_con)
 redist_int <- lmer(redistSelf ~ (social_housing * affordability) +
                      (homeowner * affordability) +
                      white_british + 
-                     no_religion + uni_propensity +
+                     no_religion + uni_full +
                      private_renting + age + 
                      c1_c2 + d_e + non_uk_born + 
                      gdp_capita +
@@ -391,7 +416,7 @@ df_immi %>%
 # multivariate ------------------------------------------------
 
 immi_multi <- lmer(immigSelf ~ white_british + 
-                     no_religion + uni_propensity +
+                     no_religion + uni_full +
                      social_housing + private_renting + 
                      homeowner + age + 
                      c1_c2 + d_e + non_uk_born +
@@ -403,7 +428,7 @@ summary(immi_multi)
 # including level 2 predictors  ------------------------------
 
 immi_con <- lmer(immigSelf ~ white_british + 
-                   no_religion + uni_propensity +
+                   no_religion + uni_full +
                    social_housing + private_renting + 
                    homeowner + age + 
                    c1_c2 + d_e + non_uk_born + 
@@ -423,7 +448,7 @@ anova(immi_multi, immi_con)
 immi_int <- lmer(immigSelf ~ (social_housing * affordability) +
                    (homeowner * affordability) +
                    white_british + 
-                   no_religion + uni_propensity +
+                   no_religion + uni_full +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
                    gdp_capita +
