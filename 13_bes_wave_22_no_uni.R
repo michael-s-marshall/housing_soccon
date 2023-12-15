@@ -2,10 +2,6 @@ pacman::p_load(tidyverse, lavaan, psych, haven, jtools, lme4, lmerTest)
 
 rm(list = ls())
 
-# lmer_coefs function ---------------------------------------------------------
-
-source("05_lmer_coefs_function.R")
-
 # loading data ----------------------------------------------------------------
 
 df <- read_dta("BES2019_W22_v24.0.dta")
@@ -105,20 +101,6 @@ df %>%
          redistSelf, immigSelf, homeowner) %>% 
   map_int(~sum(is.na(.)))
 
-# df_redist
-df %>% 
-  select(redistSelf, la_code, white_british, no_religion,
-         c1_c2, d_e, own_outright, own_mortgage, social_housing,
-         private_renting, age, age_raw, non_uk_born, homeowner) %>% 
-  na.omit() %>% 
-  nrow()
-
-df_redist <- df %>% 
-  select(redistSelf, la_code, white_british, no_religion,
-         c1_c2, d_e, own_outright, own_mortgage, social_housing,
-         private_renting, age, age_raw, non_uk_born, homeowner) %>% 
-  na.omit()
-
 # df_immi
 df %>% 
   select(immigSelf, la_code, white_british, no_religion,
@@ -152,29 +134,35 @@ df_tory <- df %>%
 afford <- read_csv("affordability_ratio_las.csv",
                    na = c(":", "NA"))
 
+year_range <- as.character(seq(2019,2021,1))
 afford <- afford %>% 
-  rename(la_code = `Local authority code`,
-         affordability = `2021`) %>% 
-  select(la_code, affordability)
+  rename(la_code = `Local authority code`) %>% 
+  select(la_code, all_of(year_range)) %>% 
+  pivot_longer(cols = all_of(year_range),
+               names_to = "year",
+               values_to = "affordability") %>% 
+  mutate(year = as.double(year))
+
+afford <- afford %>% 
+  arrange(la_code, year) %>% 
+  group_by(la_code) %>% 
+  mutate(afford_lag_one = lag(affordability, n = 1),
+         afford_lag_two = lag(affordability, n = 2)) %>% 
+  ungroup(la_code) %>% 
+  filter(year == 2021) %>% 
+  select(-year)
 
 # merging
-df_redist <- df_redist %>% 
-  left_join(afford, by = "la_code")
-
 df_immi <- df_immi %>% 
   left_join(afford, by = "la_code")
 
 df_tory <- df_tory %>% 
   left_join(afford, by = "la_code")
 
-df_redist %>% 
-  map_int(~sum(is.na(.)))
-
 df_immi %>% 
   map_int(~sum(is.na(.)))
 
 # removing scotland
-df_redist <- df_redist %>% na.omit()
 df_immi <- df_immi %>% na.omit()
 df_tory <- df_tory %>% na.omit()
 
@@ -187,15 +175,10 @@ gdp_capita <- gdp %>%
          gdp_capita = `2021`) %>% 
   select(la_code, gdp_capita)
 
-df_redist <- df_redist %>% 
-  left_join(gdp_capita, by = "la_code")
 df_immi <- df_immi %>% 
   left_join(gdp_capita, by = "la_code")
 df_tory <- df_tory %>% 
   left_join(gdp_capita, by = "la_code")
-
-df_redist %>% 
-  map_int(~sum(is.na(.)))
 
 df_immi %>% 
   map_int(~sum(is.na(.)))
@@ -214,38 +197,36 @@ names(pop) <- c("la_code", "name", "geography", "area_sqm",
 pop <- pop %>% 
   select(la_code, pop_sqm_2021)
 
-df_redist <- df_redist %>% 
-  left_join(pop, by = "la_code")
 df_immi <- df_immi %>% 
   left_join(pop, by = "la_code")
 df_tory <- df_tory %>% 
   left_join(pop, by = "la_code")
 
-df_redist %>% map_int(~sum(is.na(.)))
 df_immi %>% map_int(~sum(is.na(.)))
 df_tory %>% map_int(~sum(is.na(.)))
 
-# ethnic diversity ----------------------------------------------------------
+# birth country ---------------------------------------------------
 
-ethnic <- read_csv("population-by-ethnicity-and-local-authority-2021.csv")
+load("bc.RData")
 
-ethnic <- ethnic %>% 
-  filter(Ethnicity == "White") %>%
-  rename(
-    la_code = Geography_code,
-    white_perc = Value1
+bc <- bc %>%
+  filter(year %in% c(2019:2021)) %>%
+  select(oslaua_code, year, foreign_per_1000) %>%
+  na.omit() %>% 
+  pivot_wider(
+    names_from = "year", values_from = "foreign_per_1000"
   ) %>% 
-  mutate(white_perc = white_perc / 100) %>% 
-  select(la_code, white_perc)
+  rename(
+    foreign_per_1000 = `2021`,
+    foreign_lag_one = `2020`,
+    foreign_lag_two = `2019`
+  )
 
-df_redist <- df_redist %>% 
-  left_join(ethnic, by = "la_code")
 df_immi <- df_immi %>% 
-  left_join(ethnic, by = "la_code")
+  left_join(bc, by = c("la_code" = "oslaua_code"))
 df_tory <- df_tory %>% 
-  left_join(ethnic, by = "la_code")
+  left_join(bc, by = c("la_code" = "oslaua_code"))
 
-df_redist %>% map_int(~sum(is.na(.)))
 df_immi %>% map_int(~sum(is.na(.)))
 df_tory %>% map_int(~sum(is.na(.)))
 
@@ -258,17 +239,6 @@ las_by_age <- las_by_age %>%
   select(-year)
 
 df_immi <- df_immi %>% 
-  left_join(las_by_age, by = c("la_code" = "oslaua_code"))  %>% 
-  mutate(over_65_pct = ifelse(is.na(over_65_pct_post19),
-                              over_65_pct_pre19, 
-                              over_65_pct_post19),
-         under_15_pct = ifelse(is.na(under_15_pct_post19),
-                               under_15_pct_pre19, 
-                               under_15_pct_post19)) %>% 
-  select(-over_65_pct_post19, -over_65_pct_pre19,
-         -under_15_pct_post19, -under_15_pct_pre19)
-
-df_redist <- df_redist %>% 
   left_join(las_by_age, by = c("la_code" = "oslaua_code"))  %>% 
   mutate(over_65_pct = ifelse(is.na(over_65_pct_post19),
                               over_65_pct_pre19, 
@@ -302,8 +272,6 @@ edu <- edu %>%
 
 df_immi <- df_immi %>% 
   left_join(edu, by = "la_code")
-df_redist <- df_redist %>% 
-  left_join(edu, by = "la_code")
 df_tory <- df_tory %>% 
   left_join(edu, by = "la_code")
 
@@ -336,13 +304,10 @@ manuf <- indus_clean(manuf) %>%
 
 df_immi <- df_immi %>% 
   left_join(manuf, by = "la_code")
-df_redist <- df_redist %>% 
-  left_join(manuf, by = "la_code")
 df_tory <- df_tory %>% 
   left_join(manuf, by = "la_code")
 
 df_immi %>% map_int(~sum(is.na(.)))
-df_redist %>% map_int(~sum(is.na(.)))
 df_tory %>% map_int(~sum(is.na(.)))
 
 # region --------------------------------------------------------------------
@@ -355,8 +320,6 @@ region <- region %>%
   select(la_code, region_code)
 
 df_immi <- df_immi %>% 
-  left_join(region, by = "la_code")
-df_redist <- df_redist %>% 
   left_join(region, by = "la_code")
 df_tory <- df_tory %>% 
   left_join(region, by = "la_code")
@@ -371,71 +334,14 @@ rename_raw <- function(df, vars){
   return(df)
 }
 
-df_redist  <- df_redist %>% rename_raw(all_of(level_twos))
 df_immi  <- df_immi %>% rename_raw(all_of(level_twos))
 df_tory  <- df_tory %>% rename_raw(all_of(level_twos))
 
 # scaling
-df_redist[level_twos] <- df_redist[level_twos] %>%
-  map_df(scale_this)
 df_immi[level_twos] <- df_immi[level_twos] %>%
   map_df(scale_this)
 df_tory[level_twos] <- df_tory[level_twos] %>%
   map_df(scale_this)
-
-###############################################################################
-# redistself ------------------------------------------------------------------
-###############################################################################
-
-# multivariate ------------------------------------------------
-
-redist_multi <- lmer(redistSelf ~ white_british + 
-                       no_religion + #uni +
-                       social_housing + private_renting + 
-                       homeowner + age + 
-                       c1_c2 + d_e + non_uk_born +
-                       (1|region_code) + (1|region_code:la_code),
-                     data = df_redist, REML = FALSE)
-
-summary(redist_multi)
-
-# including level 2 predictors  ------------------------------
-
-redist_con <- lmer(redistSelf ~ white_british + 
-                     no_religion + #uni +
-                     social_housing + private_renting + 
-                     homeowner + age + 
-                     c1_c2 + d_e + non_uk_born + 
-                     affordability + gdp_capita +
-                     pop_sqm_2021 + white_perc + 
-                     over_65_pct + under_15_pct + 
-                     degree_pct + 
-                     manuf_pct +
-                     (1|region_code) + (1|region_code:la_code),
-                   data = df_redist, REML = FALSE)
-
-summary(redist_con)
-
-anova(redist_multi, redist_con)
-
-# cross level interaction ------------------------------------------------------
-
-redist_int <- lmer(redistSelf ~ (social_housing * affordability) +
-                     (homeowner * affordability) +
-                     white_british + 
-                     no_religion + #uni +
-                     private_renting + age + 
-                     c1_c2 + d_e + non_uk_born + 
-                     gdp_capita +
-                     pop_sqm_2021 + white_perc + 
-                     over_65_pct + under_15_pct + 
-                     degree_pct + 
-                     manuf_pct +
-                     (1|region_code) + (1|region_code:la_code),
-                   data = df_redist, REML = FALSE)
-summary(redist_int)
-
-anova(redist_con, redist_int)
 
 ##############################################################################
 # immigself ------------------------------------------------------------------
@@ -448,6 +354,22 @@ df_immi <- df_immi %>%
 
 df_immi %>% 
   count(immigSelf, immigSelf_pro)
+
+# ols null model
+immi_fit <- lm(immigSelf ~ 1, data = df_immi)
+
+# lmer null model
+immi_lmer <- lmer(immigSelf ~ (1|la_code), data = df_immi)
+
+logLik(immi_fit)
+logLik(immi_lmer)
+2 * (logLik(immi_lmer) - logLik(immi_fit))
+
+# lmer null model with region
+immi_reg <- lmer(immigSelf ~ (1|region_code) + (1|region_code:la_code),
+                 data = df_immi, REML = FALSE)
+
+anova(immi_lmer, immi_reg)
 
 # multivariate ------------------------------------------------
 
@@ -469,7 +391,7 @@ immi_con <- lmer(immigSelf ~ white_british +
                    homeowner + age + 
                    c1_c2 + d_e + non_uk_born + 
                    affordability + gdp_capita +
-                   pop_sqm_2021 + white_perc + 
+                   pop_sqm_2021 + foreign_per_1000  + 
                    over_65_pct + under_15_pct + 
                    degree_pct + 
                    manuf_pct +
@@ -488,7 +410,7 @@ immi_int <- lmer(immigSelf ~ (social_housing * affordability) +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
                    gdp_capita +
-                   pop_sqm_2021 + white_perc + 
+                   pop_sqm_2021 + foreign_per_1000 + 
                    over_65_pct + under_15_pct + 
                    degree_pct + 
                    manuf_pct +
@@ -498,6 +420,56 @@ summary(immi_int)
 
 anova(immi_con, immi_int)
 
+# cross level interaction not incl. population due to collinearity
+immi_int2 <- lmer(immigSelf ~ (social_housing * affordability) +
+                    (homeowner * affordability) +
+                    white_british + 
+                    no_religion + # uni +
+                    private_renting + age + 
+                    c1_c2 + d_e + non_uk_born + 
+                    gdp_capita + foreign_per_1000 + 
+                    over_65_pct + under_15_pct + 
+                    degree_pct + 
+                    manuf_pct +
+                    (1|region_code) + (1|region_code:la_code),
+                  data = df_immi, REML = FALSE)
+summary(immi_int2)
+
+anova(immi_con, immi_int2)
+
+AIC(immi_con, immi_int, immi_int2)
+
+## immigration lagged effects ------------------------------------------------
+
+immi_lag1 <- lmer(immigSelf ~ (social_housing * afford_lag_one) +
+                    (homeowner * afford_lag_one) +
+                    white_british +
+                    no_religion + # uni +
+                    private_renting + age +
+                    c1_c2 + d_e + non_uk_born +
+                    gdp_capita +
+                    pop_sqm_2021 + foreign_lag_one +
+                    over_65_pct + under_15_pct +
+                    degree_pct +
+                    manuf_pct +
+                    (1|region_code) + (1|region_code:la_code),
+                  data = df_immi, REML = FALSE)
+summary(immi_lag1)
+
+immi_lag2 <- lmer(immigSelf ~ (social_housing * afford_lag_two) +
+                    (homeowner * afford_lag_two) +
+                    white_british + no_religion + # uni +
+                    private_renting + age +
+                    c1_c2 + d_e + non_uk_born +
+                    gdp_capita + pop_sqm_2021 + foreign_lag_two +
+                    over_65_pct + under_15_pct +
+                    degree_pct + manuf_pct +
+                    (1|region_code) + (1|region_code:la_code),
+                  data = df_immi, REML = FALSE)
+summary(immi_lag2)
+
+AIC(immi_int, immi_lag1, immi_lag2)
+
 #############################################################################
 # vote tory 2019 -----------------------------------------------------------
 #############################################################################
@@ -505,10 +477,27 @@ anova(immi_con, immi_int)
 df_tory$tory_2019 <- as.factor(df_tory$tory_2019)
 levels(df_tory$tory_2019)
 
+# ols null model
+tory_fit <- glm(tory_2019 ~ 1, data = df_tory, family = "binomial")
+
+# lmer null model
+tory_lmer <- glmer(tory_2019 ~ (1|la_code), data = df_tory, 
+                   family = binomial("logit"))
+
+logLik(tory_fit)
+logLik(tory_lmer)
+2 * (logLik(tory_lmer) - logLik(tory_fit))
+
+tory_reg <- glmer(tory_2019 ~ (1|region_code) + (1|region_code:la_code), 
+                  data = df_tory, 
+                  family = binomial("logit"))
+
+anova(tory_lmer, tory_reg)
+
 # multivariate ------------------------------------------------
 
 tory_multi <- glmer(tory_2019 ~ white_british + 
-                      no_religion + #uni +
+                      no_religion + # uni +
                       social_housing + private_renting + 
                       homeowner + age + 
                       c1_c2 + d_e + non_uk_born +
@@ -520,12 +509,12 @@ summary(tory_multi)
 # including level 2 predictors  ------------------------------
 
 tory_con <- glmer(tory_2019 ~ white_british + 
-                    no_religion + #uni +
+                    no_religion + # uni +
                     social_housing + private_renting + 
                     homeowner + age + 
                     c1_c2 + d_e + non_uk_born + 
                     affordability + gdp_capita +
-                    pop_sqm_2021 + white_perc + 
+                    pop_sqm_2021 + foreign_per_1000 + 
                     over_65_pct + under_15_pct + 
                     degree_pct + 
                     manuf_pct +
@@ -540,11 +529,11 @@ anova(tory_multi, tory_con)
 tory_int <- glmer(tory_2019 ~ (social_housing * affordability) +
                     (homeowner * affordability) +
                     white_british + 
-                    no_religion + #uni +
+                    no_religion + # uni +
                     private_renting + age + 
                     c1_c2 + d_e + non_uk_born + 
                     gdp_capita +
-                    pop_sqm_2021 + white_perc + 
+                    pop_sqm_2021 + foreign_per_1000 + 
                     over_65_pct + under_15_pct + 
                     degree_pct + 
                     manuf_pct +
