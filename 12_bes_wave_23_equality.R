@@ -77,7 +77,7 @@ df %>% count(soc_class, c1_c2, d_e, p_socgrade)
 df %>% count(p_housing, own_outright, own_mortgage, homeowner, social_housing, private_renting)
 df %>% count(non_uk_born, p_country_birth)
 
-# making don't binary DV
+# making binary DV
 df$equality_too_far <- ifelse(df$blackEquality == 4|df$blackEquality == 5, 1, 0)
 df %>% 
   count(equality_too_far, blackEquality) %>%
@@ -111,10 +111,23 @@ nrow(df) - nrow(df_equal)
 afford <- read_csv("affordability_ratio_las.csv",
                    na = c(":", "NA"))
 
+year_range <- as.character(seq(2020,2022,1))
 afford <- afford %>% 
-  rename(la_code = `Local authority code`,
-         affordability = `2022`) %>% 
-  select(la_code, affordability)
+  rename(la_code = `Local authority code`) %>% 
+  select(la_code, all_of(year_range)) %>% 
+  pivot_longer(cols = all_of(year_range),
+               names_to = "year",
+               values_to = "affordability") %>% 
+  mutate(year = as.double(year))
+
+afford <- afford %>% 
+  arrange(la_code, year) %>% 
+  group_by(la_code) %>% 
+  mutate(afford_lag_one = lag(affordability, n = 1),
+         afford_lag_two = lag(affordability, n = 2)) %>% 
+  ungroup(la_code) %>% 
+  filter(year == 2022) %>% 
+  select(-year)
 
 # merging
 df_equal <- df_equal %>% 
@@ -160,21 +173,25 @@ df_equal <- df_equal %>%
 
 df_equal %>% map_int(~sum(is.na(.)))
 
-# ethnic diversity ----------------------------------------------------------
+# birth country ---------------------------------------------------
 
-ethnic <- read_csv("population-by-ethnicity-and-local-authority-2021.csv")
+load("bc.RData")
 
-ethnic <- ethnic %>% 
-  filter(Ethnicity == "White") %>%
-  rename(
-    la_code = Geography_code,
-    white_perc = Value1
+bc <- bc %>%
+  filter(year %in% c(2019:2021)) %>%
+  select(oslaua_code, year, foreign_per_1000) %>%
+  na.omit() %>% 
+  pivot_wider(
+    names_from = "year", values_from = "foreign_per_1000"
   ) %>% 
-  mutate(white_perc = white_perc / 100) %>% 
-  select(la_code, white_perc)
+  rename(
+    foreign_per_1000 = `2021`,
+    foreign_lag_one = `2020`,
+    foreign_lag_two = `2019`
+  )
 
 df_equal <- df_equal %>% 
-  left_join(ethnic, by = "la_code")
+  left_join(bc, by = c("la_code" = "oslaua_code"))
 
 df_equal %>% map_int(~sum(is.na(.)))
 
@@ -307,7 +324,7 @@ equal_con <- glmer(equality_too_far ~ white_british +
                      homeowner + age +
                      c1_c2 + d_e + non_uk_born +
                      affordability + gdp_capita +
-                     pop_sqm_2021 + white_perc +
+                     pop_sqm_2021 + foreign_per_1000 +
                      over_65_pct + under_15_pct +
                      degree_pct +
                      manuf_pct +
@@ -325,7 +342,7 @@ equal_int <- glmer(equality_too_far ~ (social_housing * affordability) +
                      white_british + no_religion + uni +
                      private_renting + age +
                      c1_c2 + d_e + non_uk_born +
-                     gdp_capita + pop_sqm_2021 + white_perc +
+                     gdp_capita + pop_sqm_2021 + foreign_per_1000 +
                      over_65_pct + under_15_pct + degree_pct +
                      manuf_pct +
                      (1|region_code) + (1|region_code:la_code),
@@ -334,3 +351,28 @@ summary(equal_int)
 
 anova(equal_con, equal_int)
 
+# lagged effect --------------------------------------------
+
+equal_lag1 <- glmer(equality_too_far ~ (social_housing * afford_lag_one) +
+                      (homeowner * afford_lag_one) +
+                      white_british + no_religion + uni +
+                      private_renting + age +
+                      c1_c2 + d_e + non_uk_born +
+                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
+                      over_65_pct + under_15_pct + 
+                      degree_pct + manuf_pct +
+                      (1|region_code) + (1|region_code:la_code),
+                    data = df_equal, family = binomial("logit"))
+summary(equal_lag1)
+
+equal_lag2 <- glmer(equality_too_far ~ (social_housing * afford_lag_two) +
+                      (homeowner * afford_lag_two) +
+                      white_british + no_religion + uni +
+                      private_renting + age +
+                      c1_c2 + d_e + non_uk_born +
+                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
+                      over_65_pct + under_15_pct + 
+                      degree_pct + manuf_pct +
+                      (1|region_code) + (1|region_code:la_code),
+                    data = df_equal, family = binomial("logit"))
+summary(equal_lag2)
