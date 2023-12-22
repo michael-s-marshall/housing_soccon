@@ -1,4 +1,4 @@
-pacman::p_load(tidyverse, lavaan, psych, haven, jtools, lme4, lmerTest)
+pacman::p_load(tidyverse, lavaan, psych, haven, jtools, lme4, lmerTest, margins)
 
 rm(list = ls())
 
@@ -337,8 +337,13 @@ anova(equal_multi, equal_con)
 
 # cross level interaction ------------------------------------------------------
 
-equal_int <- glmer(equality_too_far ~ (social_housing * affordability) +
-                     (homeowner * affordability) + 
+df_equal <- df_equal %>% 
+  mutate(social_housing.affordability = social_housing * affordability,
+         homeowner.affordability = homeowner * affordability)
+
+equal_int <- glmer(equality_too_far ~ social_housing.affordability +
+                     homeowner.affordability +
+                     social_housing + homeowner + affordability +
                      white_british + no_religion + uni +
                      private_renting + age +
                      c1_c2 + d_e + non_uk_born +
@@ -376,3 +381,19 @@ equal_lag2 <- glmer(equality_too_far ~ (social_housing * afford_lag_two) +
                       (1|region_code) + (1|region_code:la_code),
                     data = df_equal, family = binomial("logit"))
 summary(equal_lag2)
+
+# marginal effects --------------------------------------------------------
+
+marginals <- margins(equal_int, type = "response")
+
+marginals %>%
+  summary %>% 
+  as_tibble %>%
+  ggplot(aes(x = AME, y = factor)) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.5,
+             colour = "lightgrey") +
+  ggstance::geom_linerangeh(aes(xmin = lower, xmax = upper),
+                            size = 1) +
+  geom_point(shape = 21, size = 3, fill = "white") +
+  theme_bw() +
+  drop_y_gridlines()
