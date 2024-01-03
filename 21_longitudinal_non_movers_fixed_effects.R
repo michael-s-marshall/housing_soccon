@@ -375,14 +375,25 @@ immi_fe2 <- lmer(immigSelf ~ affordability_within +
                  data = immig_df, REML = FALSE)
 summary(immi_fe2)
 
+immi_fe3 <- lmer(immigSelf ~ affordability +
+                   pop_density + foreign_per_1000 +
+                   over_65_pct + under_15_pct +
+                   gdp_capita + manuf_pct + #degree_pct +
+                   year_c + (1|region_code) + (1|region_code:oslaua_code) +
+                   (1|id:oslaua_code:region_code),
+                 data = immig_df, REML = FALSE)
+summary(immi_fe3)
+
 # comparison of coefficients
 coef(immi_fe)
 fixef(immi_fe2)[-1]
+fixef(immi_fe3)[-1]
 
 # barplot of coefficients per model
 tibble(
   felm = coef(immi_fe),
-  lmer = fixef(immi_fe2)[-1],
+  lmer_w = fixef(immi_fe2)[-1],
+  lmer = fixef(immi_fe3)[-1],
   variable = names(coef(immi_fe))
 ) %>% 
   pivot_longer(
