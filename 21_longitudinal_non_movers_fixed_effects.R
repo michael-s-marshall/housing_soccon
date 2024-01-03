@@ -91,18 +91,18 @@ df <- df %>%
   # filter(wave_n >= 3) %>% 
   arrange(id, year)
 
-counts <- df %>% 
-  count(id, oslaua_code) %>% 
-  arrange(id) %>% 
-  group_by(id) %>% 
-  mutate(running_id = row_number()) %>% 
-  ungroup()
+#counts <- df %>% 
+#  count(id, oslaua_code) %>% 
+#  arrange(id) %>% 
+#  group_by(id) %>% 
+#  mutate(running_id = row_number()) %>% 
+#  ungroup()
 
-run_counts <- counts %>% 
-  filter(running_id > 1)
+#run_counts <- counts %>% 
+#  filter(running_id > 1)
 
-df <- df %>% 
-  filter(!id %in% run_counts$id)
+#df <- df %>% 
+#  filter(!id %in% run_counts$id)
 
 # affordability ---------------------------------------------------------
 
@@ -332,15 +332,18 @@ df <- df %>%
 
 # producing dataset
 immig_df <- df %>% 
-  select(immigSelf, affordability, affordability_within,
-         pop_density, pop_density_within, 
-         foreign_per_1000, foreign_per_1000_within, 
-         over_65_pct, over_65_pct_within, 
-         under_15_pct, under_15_pct_within, 
-         gdp_capita, gdp_capita_within, 
-         manuf_pct, manuf_pct_within, 
-         degree_pct, year_c, oslaua_code, year_c,
-         region_code, id) %>%  
+  select(immigSelf, contains("affordability"),
+         contains("pop_density"), contains("foreign_per_1000"),
+         contains("over_65_pct"), contains("under_15_pct"), 
+         contains("gdp_capita"), contains("manuf_pct"), 
+         degree_pct, oslaua_code, year_c,
+         region_code, id) %>% 
+  select(-over_65_pct_post19,-over_65_pct_pre19,
+         -under_15_pct_post19, -under_15_pct_pre19)
+
+immig_df %>% map_int(~sum(is.na(.)))
+
+immig_df <- immig_df %>% 
   na.omit()
 
 nrow(df) - nrow(immig_df)
@@ -360,44 +363,62 @@ immig_df$id <- as.factor(immig_df$id)
 immi_fe <- felm(immigSelf ~ affordability +
                   pop_density + foreign_per_1000 +
                   over_65_pct + under_15_pct +
-                  gdp_capita + manuf_pct + year_c | 
-                  id + oslaua_code + region_code,
+                  gdp_capita + 
+                  manuf_pct + year_c | 
+                  id + oslaua_code,
                 data = immig_df)
-
 summary(immi_fe)
 
 immi_fe2 <- lmer(immigSelf ~ affordability_within +
                    pop_density_within + foreign_per_1000_within +
                    over_65_pct_within + under_15_pct_within +
-                   gdp_capita_within + manuf_pct_within + #degree_pct +
-                   year_c + (1|region_code) + (1|region_code:oslaua_code) +
-                   (1|id:oslaua_code:region_code),
+                   gdp_capita_within + 
+                   manuf_pct_within +
+                   year_c + degree_pct + 
+                   (1|oslaua_code) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_fe2)
 
-immi_fe3 <- lmer(immigSelf ~ affordability +
-                   pop_density + foreign_per_1000 +
-                   over_65_pct + under_15_pct +
-                   gdp_capita + manuf_pct + #degree_pct +
-                   year_c + (1|region_code) + (1|region_code:oslaua_code) +
-                   (1|id:oslaua_code:region_code),
+immi_fe3 <- lmer(immigSelf ~ affordability_mean + affordability_within +
+                   pop_density_mean + pop_density_within + 
+                   foreign_per_1000_mean + foreign_per_1000_within +
+                   over_65_pct_mean + over_65_pct_within + 
+                   under_15_pct_mean + under_15_pct_within +
+                   gdp_capita_mean + gdp_capita_within + 
+                   manuf_pct_mean + manuf_pct_within +
+                   year_c + degree_pct +
+                   (1|oslaua_code) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_fe3)
+
+immi_fe4 <- lmer(immigSelf ~ affordability + affordability_mean +
+                   pop_density + pop_density_mean + 
+                   foreign_per_1000 + foreign_per_1000_mean +
+                   over_65_pct + over_65_pct_mean + 
+                   under_15_pct + under_15_pct_mean +
+                   gdp_capita + gdp_capita_mean + 
+                   manuf_pct + manuf_pct_mean +
+                   year_c + degree_pct +
+                   (1|oslaua_code) + (1|id),
+                 data = immig_df, REML = FALSE)
+summary(immi_fe4)
 
 # comparison of coefficients
 coef(immi_fe)
 fixef(immi_fe2)[-1]
-fixef(immi_fe3)[-1]
+fixef(immi_fe3)[str_detect(names(fixef(immi_fe3)), "within|year")]
+fixef(immi_fe4)[!str_detect(names(fixef(immi_fe4)), "mean")]
 
 # barplot of coefficients per model
 tibble(
   felm = coef(immi_fe),
-  lmer_w = fixef(immi_fe2)[-1],
-  lmer = fixef(immi_fe3)[-1],
+  lmer_c = fixef(immi_fe4)[!str_detect(names(fixef(immi_fe4)), "mean|degree|Intercept")],
+  lmer_w = fixef(immi_fe2)[c(-1,-10)],
+  lmer_bw = fixef(immi_fe3)[str_detect(names(fixef(immi_fe3)), "within|year")],
   variable = names(coef(immi_fe))
 ) %>% 
   pivot_longer(
-    felm:lmer,
+    felm:lmer_bw,
     names_to = "model",
     values_to = "estimate"
   ) %>% 
@@ -407,3 +428,16 @@ tibble(
   theme_bw() +
   theme(legend.position = "top") +
   drop_y_gridlines()
+
+# random slopes ------------------------------------
+
+immi_re <- lmer(immigSelf ~ affordability_within +
+                  pop_density_within + foreign_per_1000_within +
+                  over_65_pct_within + under_15_pct_within +
+                  gdp_capita_within + manuf_pct_within +
+                  year_c + degree_pct +
+                  (1 + affordability_within|oslaua_code) + (1|id),
+                data = immig_df, REML = FALSE)
+summary(immi_re)
+
+anova(immi_fe2, immi_re) # no evidence of improved fit from random slopes
