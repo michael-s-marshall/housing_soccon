@@ -1,5 +1,4 @@
-pacman::p_load(tidyverse, haven, lme4, lmerTest, jtools, gghighlight, survey,
-               srvyr)
+pacman::p_load(tidyverse, haven, lme4, lmerTest, jtools, lfe)
 
 rm(list = ls())
 
@@ -26,7 +25,7 @@ data_files <- c("BES2015_W10_v24.0.dta",
                 "BES2019_W20_v24.0.dta",
                 "BES2019_W22_v24.0.dta")
 
-file_path <- "U:/housing_soccon/panel_data/"
+file_path <- "panel_data/"
 vars <- c("id", "immigSelf", "redistSelf", "p_edlevel", 
           "p_ethnicity", "p_religion", "p_socgrade", 
           "p_country_birth", "p_gross_household",
@@ -100,22 +99,17 @@ df <- df %>%
 afford <- read_csv("affordability_ratio_las.csv",
                    na = c(":", "NA"))
 
-year_range <- as.character(seq(2014,2021,1))
+year_range <- as.character(seq(2016,2021,1))
 afford <- afford %>% 
   rename(oslaua_code = `Local authority code`) %>% 
   select(oslaua_code, all_of(year_range)) %>% 
   pivot_longer(cols = all_of(year_range),
                names_to = "year",
                values_to = "affordability") %>% 
-  mutate(year = as.double(year))
-
-afford <- afford %>% 
-  arrange(oslaua_code, year) %>% 
   group_by(oslaua_code) %>% 
-  mutate(afford_lag_one = lag(affordability, n = 1),
-         afford_lag_two = lag(affordability, n = 2)) %>% 
-  ungroup(oslaua_code) %>% 
-  filter(year != 2014 & year != 2015)
+  mutate(year = as.double(year),
+         affordability_mean = mean(affordability, na.rm = T)) %>% 
+  ungroup()
 
 df <- df %>% 
   left_join(afford, by = c("oslaua_code","year"))
@@ -130,15 +124,15 @@ gdp <- gdp %>%
     cols = all_of(year_range),
     names_to = "year",
     values_to = "gdp_capita"
-  ) %>% 
-  mutate(year = parse_double(year)) %>% 
-  select(oslaua_code, year, gdp_capita)
+  ) %>%
+  group_by(oslaua_code) %>% 
+  mutate(year = parse_double(year),
+         gdp_capita_mean = mean(gdp_capita, na.rm = T)) %>%
+  ungroup() %>% 
+  select(oslaua_code, year, gdp_capita, gdp_capita_mean)
 
 df <- df %>% 
   left_join(gdp, by = c("oslaua_code", "year"))
-
-df %>% 
-  map_int(~sum(is.na(.)))
 
 # population data -----------------------------------------------------------
 
@@ -147,30 +141,27 @@ load("pop.RData")
 #pop <- pop %>% 
 #  filter(!year %in% c(2014, 2015))
 
-pop <- pop %>% 
-  arrange(oslaua_code, year) %>% 
+pop <- pop %>%
+  filter(year != 2014 & year != 2015) %>% 
+  select(-la_name) %>% 
   group_by(oslaua_code) %>% 
-  mutate(pop_lag_one = lag(pop_density, n = 1),
-         pop_lag_two = lag(pop_density, n = 2)) %>% 
-  ungroup(oslaua_code) %>% 
-  filter(year != 2014 & year != 2015)
-
+  mutate(pop_density_mean = mean(pop_density, na.rm = T)) %>% 
+  ungroup()
+  
 df <- df %>% 
   left_join(pop, by = c("oslaua_code", "year"))
-
-df %>% 
-  map_int(~sum(is.na(.)))
 
 # birth country data -----------------------------------------------------------
 
 load("bc.RData")
 
-bc <- bc %>% select(oslaua_code, year, foreign_per_1000)
+bc <- bc %>% 
+  select(oslaua_code, year, foreign_per_1000) %>% 
+  group_by(oslaua_code) %>% 
+  mutate(foreign_per_1000_mean = mean(foreign_per_1000, na.rm = T)) %>% 
+  ungroup()
 
 df <- df %>% left_join(bc, by = c("oslaua_code","year"))
-
-df %>% 
-  map_int(~sum(is.na(.)))
 
 # age data -------------------------------------------------------------
 
@@ -183,10 +174,13 @@ df <- df %>%
                               over_65_pct_post19),
          under_15_pct = ifelse(is.na(under_15_pct_post19),
                                under_15_pct_pre19, 
-                               under_15_pct_post19))
-
-df %>% 
-  map_int(~sum(is.na(.)))
+                               under_15_pct_post19)) %>% 
+  select(-over_65_pct_post19, -over_65_pct_pre19,
+         -under_15_pct_post19, -under_15_pct_pre19) %>% 
+  group_by(oslaua_code) %>% 
+  mutate(over_65_pct_mean = mean(over_65_pct, na.rm = T),
+         under_15_pct_mean = mean(under_15_pct, na.rm = T)) %>% 
+  ungroup()
 
 ## education data -------------------------------------------------------
 
@@ -200,8 +194,6 @@ edu <- edu %>%
 
 df <- df %>% 
   left_join(edu, by = "oslaua_code")
-
-df %>% map_int(~sum(is.na(.)))
 
 # percentage manufacturing employment --------------------------------------
 
@@ -244,13 +236,17 @@ indus_2020 <- indus_clean(indus_2020, 2020)
 indus_2021 <- read_csv("2021_industry_employment.csv")
 indus_2021 <- indus_clean(indus_2021, 2021)
 
-manuf_pct <- bind_rows(indus_2016, indus_2017, indus_2018,
-                       indus_2019, indus_2020, indus_2021)
+manuf_pct <- bind_rows(
+  indus_2016, indus_2017, indus_2018,
+  indus_2019, indus_2020, indus_2021
+  ) %>% 
+  select(oslaua_code, manuf_pct, year) %>% 
+  group_by(oslaua_code) %>% 
+  mutate(manuf_pct_mean = mean(manuf_pct, na.rm = T)) %>% 
+  ungroup()
 
 df <- df %>% 
-  left_join(manuf_pct %>% 
-              select(oslaua_code, manuf_pct, year),
-            by = c("oslaua_code","year"))
+  left_join(manuf_pct, by = c("oslaua_code","year"))
 
 rm(indus_2016, indus_2017, indus_2018, indus_2019, indus_2020, indus_2021)
 
@@ -260,53 +256,22 @@ rm(indus_2016, indus_2017, indus_2018, indus_2019, indus_2020, indus_2021)
 df <- df %>% 
   mutate(year_c = year - 2016)
 
-# between and within calculations
-within_between <- function(df, group_var, mutate_vars){
-  
-  df <- df %>% 
-    group_by(pick({{group_var}})) %>% 
-    mutate(
-      across({{mutate_vars}}, \(x) x - mean(x, na.rm = T), .names = "{.col}_within"),
-      across({{mutate_vars}}, \(x) mean(x, na.rm = T), .names = "{.col}_mean")
-    ) %>% 
-    ungroup()
-  
-  return(df)
-  
-}
-
-df <- df %>% 
-  within_between(oslaua_code, c(affordability, afford_lag_one, afford_lag_two, 
-                                gdp_capita, pop_density, pop_lag_one, pop_lag_two, 
-                                foreign_per_1000, over_65_pct, 
-                                under_15_pct, manuf_pct))
+scaling_vars <- df %>% 
+  select(affordability:manuf_pct_mean) %>% 
+  names()
 
 scale_this <- function(x){
   (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
 }
 
-to_scale <- df %>% 
-  select(contains("within")|contains("mean")) %>% 
-  names()
-
-to_scale <- c(to_scale, "degree_pct")
-
-df[to_scale] <- df[to_scale] %>%
+df[scaling_vars] <- df[scaling_vars] %>%
   map_df(scale_this)
 
 ## creating person variables ------------------------------------------------
 
-df %>% 
-  select(starts_with("p_")) %>% 
-  names() %>% 
-  map(~count(df %>% select(starts_with("p_")), .data[[.x]]))
-
 df$uni <- ifelse(
   df$p_edlevel == 4|df$p_edlevel == 5, 1, 0
 )
-
-df %>% 
-  count(p_edlevel, uni)
 
 df$white <- ifelse(
   df$p_ethnicity == 1|df$p_ethnicity == 2, 1, 0
@@ -314,15 +279,9 @@ df$white <- ifelse(
 
 df$white[df$p_ethnicity == 16] <- NA
 
-df %>% 
-  count(p_ethnicity, white)
-
 df$no_religion <- ifelse(
   df$p_religion == 1, 1, 0
 )
-
-df %>% 
-  count(p_religion, no_religion)
 
 df$c1_c2 <- ifelse(
   df$p_socgrade == 3 | df$p_socgrade == 4, 1, 0
@@ -334,16 +293,10 @@ df$d_e <- ifelse(
 )
 df$d_e[df$p_socgrade == 7|df$p_socgrade == 8] <- NA
 
-df %>% 
-  count(p_socgrade, c1_c2, d_e)
-
 df$non_uk_born <- ifelse(
   df$p_country_birth != 1, 1, 0
 )
 df$non_uk_born[df$p_country_birth == 9999] <- NA
-
-df %>% 
-  count(p_country_birth, non_uk_born)
 
 df$own_outright <- ifelse(
   df$p_housing == 1, 1, 0
@@ -365,15 +318,8 @@ df$social_housing <- ifelse(
   df$p_housing == 5|df$p_housing == 6, 1, 0
 )
 
-df %>% 
-  count(p_housing, own_outright, own_mortgage, 
-        homeowner, private_renting, social_housing)
-
 # scaling age
 df$age <- scale_this(df$age)
-
-df %>% 
-  map_int(~sum(is.na(.)))
 
 df %>% 
   summarise(mean_age = mean(age, na.rm = T),
@@ -389,14 +335,6 @@ df$immigSelf[df$immigSelf == 9999] <- NA
 df %>% 
   count(immigSelf)
 
-df %>% 
-  count(redistSelf)
-
-df$redistSelf[df$redistSelf == 9999] <- NA
-
-df %>% 
-  count(redistSelf)
-
 # region --------------------------------------------------------------------
 
 region <- read_csv("lasregionew2021lookup.csv")
@@ -409,258 +347,123 @@ region <- region %>%
 df <- df %>% 
   left_join(region, by = "oslaua_code")
 
-# collinearity between degrees and affordability -----------------------------
-
-afford_degrees <- df %>% 
-  filter(year == 2021) %>%
-  select(degree_pct, affordability) %>% 
-  unique()
-
-afford_degrees %>% 
-  ggplot(aes(x = degree_pct, y = affordability)) +
-  geom_point(alpha = 1/3) +
-  geom_smooth(method = "lm")
-
-cor.test(afford_degrees$degree_pct, afford_degrees$affordability)
-
-afford_degree_lm <- lm(affordability ~ degree_pct,
-                       data = afford_degrees)
-
-summary(afford_degree_lm)
-par(mfrow = c(2,2))
-plot(afford_degree_lm)
-
-rm(afford_degrees, afford_degree_lm)
-
-# looking at NAs ----------------------------------------------------------
-
-df %>% 
-  select(immigSelf, affordability_within, affordability_mean,
-         afford_lag_one_within, afford_lag_one_mean,
-         afford_lag_two_within, afford_lag_two_mean,
-         pop_density_within, pop_density_mean,
-         pop_lag_one_within, pop_lag_one_mean,
-         pop_lag_two_within, pop_lag_two_mean,
-         over_65_pct_within, over_65_pct_mean, under_15_pct_within, 
-         under_15_pct_mean, degree_pct, foreign_per_1000,
-         gdp_capita_mean, gdp_capita_within, manuf_pct_mean, manuf_pct_within,
-         uni, white, no_religion, c1_c2, d_e, non_uk_born, homeowner, 
-         private_renting, social_housing, year_c, oslaua_code,
-         gor, region_code, id) %>% 
-  map_int(~sum(is.na(.)))
-
-missing_las <- function(df, var){
-  miss <- df %>% 
-    filter(is.na({{var}})) %>% 
-    count(oslaua_code, sort = T)
-  miss_las <- miss$n
-  names(miss_las) <- miss$oslaua_code
-  return(miss_las)
-}
-
-# affordability NAs are Scotland, and some missing values from City of London
-missing_las(df, affordability)
-
-# degree_pct NAs are Scotland
-missing_las(df, degree_pct)
-
-# region NAs are Scotland
-missing_las(df, region_code)
-
-# foreign_per_1000 NAs are Scotland and City of London
-missing_las(df, foreign_per_1000)
-
 ###############################################################################
 # immigration -----------------------------------------------------------------
 ###############################################################################
 
 # producing dataset
 immig_df <- df %>% 
-  select(immigSelf, affordability_within, affordability_mean,
-         afford_lag_one_within, afford_lag_one_mean,
-         afford_lag_two_within, afford_lag_two_mean,
-         pop_density_within, pop_density_mean,
-         pop_lag_one_within, pop_lag_one_mean,
-         pop_lag_two_within, pop_lag_two_mean,
-         foreign_per_1000_within, foreign_per_1000_mean,
-         over_65_pct_within, over_65_pct_mean, under_15_pct_within, 
-         under_15_pct_mean, degree_pct,
-         gdp_capita_mean, gdp_capita_within, manuf_pct_mean, manuf_pct_within,
+  select(immigSelf, contains("affordability"),
+         contains("pop_density"), contains("foreign_per_1000"),
+         contains("over_65_pct"), contains("under_15_pct"), 
+         contains("gdp_capita"), contains("manuf_pct"), degree_pct, 
          uni, white, no_religion, c1_c2, d_e, non_uk_born, homeowner, 
          private_renting, social_housing, year_c, oslaua_code,
-         region_code, id) %>%  
+         gor, region_code, id) 
+
+immig_df %>% map_int(~sum(is.na(.)))
+
+immig_df <- immig_df %>% 
   na.omit()
 
 nrow(df) - nrow(immig_df)
 
-## immi null ------------------------------------------------------------------
+## fixed effects ------------------------------------------------------------------
 
-immig_df <- immig_df %>% 
-  mutate(immigSelf = 10 - immigSelf)
+immig_df <- immig_df %>%
+  mutate(
+    immigpro = immigSelf,
+    immigSelf = 10 - immigpro
+  )
 
-immi_null <- lmer(immigSelf ~ (1|id) + (1|region_code) + 
-                    (1|region_code:oslaua_code),
-                  data = immig_df, REML=FALSE)
+immig_df %>% count(immigSelf, immigpro)
 
-summary(immi_null)
-summ(immi_null, r.squared = FALSE)
+immig_df$id <- as.factor(immig_df$id)
 
-## immig longitudinal ---------------------------------------------------------
+immi_fe <- felm(immigSelf ~ affordability +
+                  pop_density + foreign_per_1000 +
+                  over_65_pct + under_15_pct +
+                  gdp_capita + 
+                  manuf_pct + year_c | 
+                  id + oslaua_code,
+                data = immig_df)
+summary(immi_fe)
 
-immi_long <- lmer(immigSelf ~ affordability_within + affordability_mean +
-                    pop_density_within + pop_density_mean +
-                    foreign_per_1000_within + foreign_per_1000_mean +
-                    over_65_pct_within + over_65_pct_mean +
-                    under_15_pct_within + under_15_pct_mean +
-                    degree_pct + 
-                    gdp_capita_within + gdp_capita_mean +
-                    manuf_pct_within + manuf_pct_mean +
-                    uni + white + no_religion + c1_c2 + d_e + non_uk_born +
-                    homeowner + private_renting +
-                    social_housing +
-                    year_c + (1|id) + (1|region_code) + (1|region_code:oslaua_code),
-                  data = immig_df, REML = FALSE)
+immi_fe2 <- lmer(immigSelf ~ affordability +
+                   pop_density + foreign_per_1000 +
+                   over_65_pct + under_15_pct +
+                   gdp_capita + 
+                   manuf_pct +
+                   year_c +
+                   (1|oslaua_code) + (1|id),
+                 data = immig_df, REML = FALSE)
+summary(immi_fe2)
 
-summary(immi_long)
-summ(immi_long, r.squared=F)
+immi_fe3 <- lmer(immigSelf ~ affordability + affordability_mean +
+                   pop_density + pop_density_mean + 
+                   foreign_per_1000 + foreign_per_1000_mean +
+                   over_65_pct + over_65_pct_mean +
+                   under_15_pct + under_15_pct_mean +
+                   gdp_capita + gdp_capita_mean +
+                   manuf_pct + manuf_pct_mean +
+                   year_c + (1|oslaua_code) + (1|id),
+                 data = immig_df, REML = FALSE)
+summary(immi_fe3)
 
-# immig cross level interactions ---------------------------------------------
-
-immi_cint <- lmer(immigSelf ~ (affordability_mean * social_housing) +
-                    affordability_within +
-                    pop_density_within + pop_density_mean +
-                    foreign_per_1000_within + foreign_per_1000_mean +
-                    over_65_pct_within + over_65_pct_mean +
-                    under_15_pct_within + under_15_pct_mean + 
-                    degree_pct + 
-                    gdp_capita_within + gdp_capita_mean +
-                    manuf_pct_within + manuf_pct_mean +
-                    uni + white + no_religion + c1_c2 + d_e + non_uk_born +
-                    homeowner + private_renting +
-                    #social_housing +
-                    year_c + (1|id) + (1|region_code) + (1|region_code:oslaua_code),
-                  data = immig_df, REML = FALSE)
-
-summary(immi_cint)
-summ(immi_cint, r.squared=F)
-
-immi_cint2 <- lmer(immigSelf ~ (affordability_mean * social_housing) +
-                     (affordability_mean * homeowner) +
-                     affordability_within +
-                     pop_density_within + pop_density_mean +
-                     foreign_per_1000_within + foreign_per_1000_mean +
-                     over_65_pct_within + over_65_pct_mean +
-                     under_15_pct_within + under_15_pct_mean + 
-                     degree_pct + 
-                     gdp_capita_within + gdp_capita_mean +
-                     manuf_pct_within + manuf_pct_mean +
-                     uni + white + no_religion + c1_c2 + d_e + non_uk_born +
-                     #homeowner + 
-                     private_renting + #social_housing +
-                     year_c + (1|id) + (1|region_code) + (1|region_code:oslaua_code),
-                   data = immig_df, REML = FALSE)
-
-summary(immi_cint2)
-summ(immi_cint2, r.squared=F)
-
-(0.13579  - 0.020484) / 0.13579  # 84.9% of LA variance explained by level 2 fixed effects
-
-# lagged effects ---------------------------------------------------------------
-
-immi_lag_1 <- lmer(immigSelf ~ (afford_lag_one_mean * social_housing) +
-                     (afford_lag_one_mean * homeowner) +
-                     afford_lag_one_within +
-                     pop_lag_one_within + pop_lag_one_mean +
-                     foreign_per_1000_within + foreign_per_1000_mean +
-                     over_65_pct_within + over_65_pct_mean +
-                     under_15_pct_within + under_15_pct_mean + 
-                     degree_pct + 
-                     gdp_capita_within + gdp_capita_mean +
-                     manuf_pct_within + manuf_pct_mean +
-                     uni + white + no_religion + c1_c2 + d_e + non_uk_born +
-                     #homeowner + 
-                     private_renting + #social_housing +
-                     year_c + (1|id) + (1|region_code) + (1|region_code:oslaua_code),
-                   data = immig_df, REML = FALSE)
-
-summary(immi_lag_1)
-summ(immi_lag_1, r.squared=F)
-
-immi_lag_2 <- lmer(immigSelf ~ (afford_lag_two_mean * social_housing) +
-                     (afford_lag_two_mean * homeowner) +
-                     afford_lag_two_within +
-                     pop_lag_two_within + pop_lag_two_mean +
-                     foreign_per_1000_within + foreign_per_1000_mean +
-                     over_65_pct_within + over_65_pct_mean +
-                     under_15_pct_within + under_15_pct_mean + 
-                     degree_pct + 
-                     gdp_capita_within + gdp_capita_mean +
-                     manuf_pct_within + manuf_pct_mean +
-                     uni + white + no_religion + c1_c2 + d_e + non_uk_born +
-                     #homeowner + 
-                     private_renting + #social_housing +
-                     year_c + (1|id) + (1|region_code) + (1|region_code:oslaua_code),
-                   data = immig_df, REML = FALSE)
-
-summary(immi_lag_2)
-summ(immi_lag_2, r.squared=F)
-
-###############################################################################
-# principal components regression ---------------------------------------------
-###############################################################################
-
-pacman::p_load(AMR)
-
-# pca on level two variables
-
-pca_df <- df %>% 
-  select(year, oslaua_code, affordability, degree_pct, pop_density, 
-         foreign_per_1000, over_65_pct, under_15_pct,
-         gdp_capita, manuf_pct) %>% 
-  na.omit() %>%
-  unique()
-
-pca_mat <- pca_df %>%
-  select(-year, -oslaua_code) %>% 
-  as.matrix() %>% 
-  scale()
-
-# PCA
-pca_level_2 <- prcomp(pca_mat)
-
-# biplot
-ggplot_pca(pca_level_2)
-
-# extracting PC1 and PC2 
-pca_df$PC1 <- pca_level_2$x[,1]
-pca_df$PC2 <- pca_level_2$x[,2]
-
-# binding to df
-df <- df %>% 
-  left_join(
-    pca_df %>% select(oslaua_code, year, PC1, PC2),
-    by = c("oslaua_code","year")
+# comparison of coefficients
+# barplot of coefficients per model
+tibble(
+  felm = coef(immi_fe),
+  lmer = fixef(immi_fe2)[-1],
+  lmer_c = fixef(immi_fe3)[!str_detect(names(fixef(immi_fe3)),"Intercept|mean")],
+  variable = names(coef(immi_fe))
+) %>% 
+  pivot_longer(
+    felm:lmer_c,
+    names_to = "model",
+    values_to = "estimate"
   ) %>% 
-  within_between(oslaua_code, c(PC1, PC2))
+  ggplot(aes(x = estimate, y = variable, fill = model)) +
+  geom_col(position = "dodge", colour = "black") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  theme(legend.position = "top") +
+  drop_y_gridlines()
 
-immig_df <- immig_df %>% 
-  left_join(df %>% 
-              select(oslaua_code, year_c, PC1_mean,
-                     PC1_within, PC2_mean, PC2_within) %>% 
-              unique(),
-            by = c("oslaua_code","year_c"))
+# interaction effects ------------------------------------------------
 
-immi_cint3 <- lmer(immigSelf ~ (PC1_mean * social_housing) +
-                     (PC2_mean * homeowner) +
-                     PC1_within +
-                     PC2_within +
-                     uni + white + no_religion + c1_c2 + d_e + non_uk_born +
-                     #homeowner + 
-                     private_renting + #social_housing +
-                     year_c + (1|id) + (1|region_code) + (1|region_code:oslaua_code),
-                   data = immig_df, REML = FALSE)
+# level 1 no interactions
+immi_lv1 <- lmer(immigSelf ~ affordability_mean + affordability +
+                   pop_density + pop_density_mean +
+                   foreign_per_1000 + foreign_per_1000_mean +
+                   over_65_pct + over_65_pct_mean +
+                   under_15_pct + under_15_pct_mean +
+                   gdp_capita + gdp_capita_mean +
+                   manuf_pct + manuf_pct_mean +
+                   uni + white + no_religion + c1_c2 + 
+                   d_e + non_uk_born + private_renting +
+                   homeowner + social_housing +
+                   year_c + degree_pct +
+                   (1|oslaua_code) + (1|id),
+                 data = immig_df, REML = FALSE)
+summary(immi_lv1)
 
-summary(immi_cint3)
-summ(immi_cint3, r.squared=F)
+immi_int <- lmer(immigSelf ~ (social_housing * affordability) +
+                   (homeowner * affordability) +
+                   affordability_mean + # affordability +
+                   pop_density + pop_density_mean +
+                   foreign_per_1000 + foreign_per_1000_mean +
+                   over_65_pct + over_65_pct_mean +
+                   under_15_pct + under_15_pct_mean +
+                   gdp_capita + gdp_capita_mean +
+                   manuf_pct + manuf_pct_mean +
+                   uni + white + no_religion + c1_c2 + 
+                   d_e + non_uk_born + private_renting +
+                   #homeowner + social_housing +
+                   year_c + degree_pct +
+                   (1|oslaua_code) + (1|id),
+                 data = immig_df, REML = FALSE)
+summary(immi_int)
 
-anova(immi_cint2, immi_cint3)
+anova(immi_fe3, immi_lv1)
+anova(immi_lv1, immi_int)
