@@ -99,6 +99,30 @@ summary(immi_int)
 
 anova(immi_con, immi_int)
 
+# plotting coefficients ------------------------------------------------
+
+plot_names <- tibble(
+  term = names(fixef(immi_int))[-1],
+  var_name = c("Social housing", "Affordability", "Homeowner",
+               "White British", "No religion", "University graduate",
+               "Private renter", "Age", "Social class: C1-C2",
+               "Social class: D-E", "Non-UK born", "GDP per capita",
+               "Population density", "Non-UK born population", "Over 65 %", "Under 15 %",
+               "Graduate %", "Manufacturing %", "Affordability:Social housing",
+               "Affordability:Homeowner"),
+  grouping = c("Housing", "Housing", "Housing",
+               "Individual","Individual", "Individual",
+               "Housing", "Individual", "Individual", 
+               "Individual", "Individual", "Local", 
+               "Local", "Local", "Local", "Local",
+               "Local", "Local","Housing", "Housing")
+) %>% 
+  mutate(grouping = fct_relevel(as.factor(grouping), 
+                                c("Housing", "Individual",
+                                  "Local")))
+
+lmer_coefs(immi_int, "boot", plot_names)
+
 # robustness check - with uni predictions ------------------------------
 
 df_immi_preds <- df %>% 

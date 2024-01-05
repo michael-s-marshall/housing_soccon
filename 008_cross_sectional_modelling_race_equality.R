@@ -294,14 +294,48 @@ anova(equal_con, equal_int)
 
 marginals <- margins(equal_int, type = "response")
 
+plot_names <- tibble(
+  term = marginals %>%
+    summary %>% 
+    as_tibble %>%
+    select(factor) %>% 
+    as_vector,
+  var_name = c("Affordability", "Age", "Social class: C1-C2", "Social class: D-E",
+               "Graduate %", "Non-UK born population","GDP per capita",
+               "Homeowner","Affordability:Homeowner", "Manufacturing %",
+               "No religion", "Non-UK born", "Over 65 %", "Population density",
+               "Private renter", "Social housing", "Affordability:Social housing",
+               "Under 15 %", "University graduate", "White British"),
+  grouping = c("Housing", "Individual","Individual", "Individual",
+               "Local", "Local", "Local", "Housing", "Housing", "Local",
+               "Individual", "Individual", "Local", "Local", 
+               "Housing", "Housing", "Housing", 
+               "Local", "Individual", "Individual")
+) %>% 
+  mutate(grouping = fct_relevel(as.factor(grouping), 
+                                c("Housing", "Individual",
+                                  "Local")))
+
+# plotting marginal effects
 marginals %>%
   summary %>% 
   as_tibble %>%
-  ggplot(aes(x = AME, y = factor)) +
-  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.5,
-             colour = "lightgrey") +
+  left_join(plot_names, by = c("factor" = "term")) %>% 
+  mutate(
+    sig = lower > 0 | upper < 0,
+    sig = ifelse(sig == T, "Significant","Non-significant"),
+    sig = fct_rev(as.factor(sig))
+  ) %>%
+  ggplot(aes(x = AME, y = fct_rev(var_name), colour = sig)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "lightgrey", 
+             linewidth = 1.5, alpha = 0.7) +
   ggstance::geom_linerangeh(aes(xmin = lower, xmax = upper),
-                            size = 1) +
-  geom_point(shape = 21, size = 3, fill = "white") +
-  theme_bw() +
-  drop_y_gridlines()
+                            size = 1.2) +
+  geom_point(shape = 21, fill = "white", size = 3.5) +
+  theme_minimal() +
+  drop_y_gridlines() +
+  labs(x = "Estimate", y = NULL, colour = NULL) +
+  facet_wrap(~grouping, ncol = 1, scales = "free_y") +
+  theme(legend.position = "top",
+        strip.text = element_text(face = "bold")) +
+  scale_colour_manual(values = c("black","grey65"))

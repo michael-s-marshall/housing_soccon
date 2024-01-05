@@ -5,9 +5,9 @@ lmer_coefs <- function(lmer_obj, chosen_method, var_names){
   confint(lmer_obj, method = chosen_method) %>% 
     as_tibble() %>% 
     bind_cols(
-      tibble(term = c(".sig01",".sig02",".sigma",names(fixef(lmer_obj))))
+      tibble(term = c(".sig01",".sigma",names(fixef(lmer_obj))))
     ) %>% 
-    bind_cols(tibble(estimate = c(NA, NA, NA, fixef(lmer_obj)))) %>% 
+    bind_cols(tibble(estimate = c(NA, NA, fixef(lmer_obj)))) %>% 
     na.omit() %>% 
     filter(term != "(Intercept)") %>%
     left_join(var_names, by = "term") %>% 
