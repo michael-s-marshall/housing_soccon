@@ -1,16 +1,12 @@
-pacman::p_load(tidyverse, lavaan, psych, haven, jtools, lme4, lmerTest)
+pacman::p_load(tidyverse, haven, jtools, lme4, lmerTest)
 
 rm(list = ls())
-
-# lmer_coefs function ---------------------------------------------------------
-
-source("05_lmer_coefs_function.R")
 
 # loading data ----------------------------------------------------------------
 
 df <- read_dta("BES2019_W22_v24.0.dta")
 
-# rescale function --------------------------------------------
+# scaling functions --------------------------------------------
 
 rescale01 <- function(x, ...){
   out <- ((x - min(x, ...)) / (max(x, ...) - min(x, ...)))
@@ -23,14 +19,6 @@ scale_this <- function(x){
 
 # ind vars ------------------------------------------
 
-df %>% 
-  select(starts_with("p_")) %>% 
-  names() %>% 
-  map(~count(df %>% select(starts_with("p_")), .data[[.x]]))
-
-# p_edlevel, p_ethnicity, p_religion, p_gross_household, p_housing, age, 
-# p_socgrade, p_country_birth, p_past_vote_2019, p_turnout_2019
-# ind vars
 df <- df %>% 
   mutate(
     uni = fct_collapse(
@@ -58,34 +46,21 @@ df <- df %>%
     non_uk_born = fct_lump_n(as.factor(p_country_birth), n = 1) %>% 
       fct_recode("0" = "Other") %>% 
       as.character() %>% 
-      parse_double(),
-    tory_2019 = fct_lump_n(as.factor(p_past_vote_2019), n = 1)
-  ) %>% 
-  rename(la_code = oslaua_code)
+      parse_double()
+  )
 
 df$soc_class[df$soc_class == "Other"] <- NA
 df$c1_c2 <- ifelse(df$soc_class == "C1-C2", 1, 0)
 df$d_e <- ifelse(df$soc_class == "D-E", 1, 0)
-df$income <- ifelse(df$p_gross_household %in% c(16, 17), 
-                    NA, df$p_gross_household)
-df$income <- rescale01(df$income, na.rm = T)
 df$own_outright <- ifelse(df$p_housing == 1, 1, 0)
 df$private_renting <- ifelse(df$p_housing == 4, 1, 0)
 df$social_housing <- ifelse(df$p_housing == 5|df$p_housing == 6, 1, 0)
 df$own_mortgage <- ifelse(df$p_housing == 2, 1, 0)
-df$homeowner <- ifelse(df$own_outright == 1 | df$own_mortgage == 1, 1, 0)
-df$tory_2019 <- ifelse(df$p_turnout_2019 == 0|df$tory_2019 == "Other", 0, 1)
-df$tory_2019[df$p_past_vote_2019 == 9999] <- NA
 df$non_voter <- df$p_turnout_2019 == 0
 df$non_voter[df$p_turnout_2019 == 9999] <- NA
-df$redistSelf[df$redistSelf == 9999] <- NA
-df$immigSelf[df$immigSelf == 9999] <- NA
 df$age_raw <- df$age
 df$age <- scale_this(df$age)
 
-df$not_disabled <- ifelse(df$p_disability == 3, 1, 0)
-df$not_disabled[is.na(df$p_disability)] <- NA
-df %>% count(not_disabled, p_disability)
 df$broadsheet <- ifelse(df$p_paper_read %in% c(6,7,8,9,10), 1, 0)
 df$broadsheet[is.na(df$p_paper_read)] <- NA
 df$tabloid <- ifelse(df$p_paper_read %in% c(1,2,3,4,5), 1, 0)
@@ -95,6 +70,8 @@ df$full_time <- ifelse(df$p_work_stat == 1, 1, 0)
 df$edu_20plus <- ifelse(df$p_education_age == 5, 1, 0)
 df$edu_20plus[is.na(df$p_education_age)] <- NA
 df %>% count(edu_20plus, p_education_age)
+
+# data frame to predict university attendance -------------------------
 
 uni_df <- df %>% 
   select(uni, white_british, c1_c2, d_e, own_mortgage,
@@ -108,6 +85,8 @@ uni_df <- df %>%
 uni_df <- uni_df %>% 
   mutate(id = row_number())
 
+# test and train datasets ------------------------------------
+
 set.seed(123)
 uni_df_train <- sample_frac(uni_df, size = 0.9)
 uni_df_test <- uni_df %>% 
@@ -116,9 +95,12 @@ uni_df_test <- uni_df %>%
 uni_df_train <- uni_df_train %>% select(-id)
 uni_df_test <- uni_df_test %>% select(-id)
 
+# logit classifier ------------------------------------------------
+
 uni_logit <- glm(uni ~ ., data = uni_df_train, family = "binomial")
 summary(uni_logit)
 
+# removing full-time employment as predictor 
 uni_df_train <- uni_df_train %>% select(-full_time)
 
 uni_logit <- glm(uni ~ ., data = uni_df_train, family = "binomial")
@@ -132,7 +114,9 @@ mean(uni_df_train$uni == uni_preds)
 test_probs <- predict(uni_logit, type = "response", newdata = uni_df_test)
 test_preds <- ifelse(test_probs > 0.5, 1, 0)
 table(uni_df_test$uni, test_preds)
-mean(uni_df_test$uni == test_preds)
+mean(uni_df_test$uni == test_preds) # 85.2% correct predictions on test data
+
+# saving model ------------------------------------------------
 
 df <- df %>% 
   mutate(age_sq = age_raw ^ 2,
@@ -141,329 +125,18 @@ df <- df %>%
 df$uni_propensity <- predict(uni_logit, type = "response", newdata = df)
 summary(df$uni_propensity)
 
-# datasets -------------------------------------------------------------------
-
-# df_immi
-df_immi <- df %>% 
-  select(immigSelf, la_code, white_british, no_religion, uni,
-         c1_c2, d_e, social_housing, private_renting, age, 
-         age_raw, non_uk_born, homeowner, uni_propensity) %>% 
+df <- df %>% 
+  select(id, uni, uni_propensity) %>% 
   mutate(uni_pred = ifelse(uni_propensity > 0.5, 1, 0),
          uni_full = ifelse(is.na(uni), uni_pred, uni))
 
-df_immi %>% count(uni, uni_full, uni_pred)
+df %>% count(uni, uni_full, uni_pred)
 
-to_drop <- df_immi %>% select(-uni, -uni_propensity, -uni_pred) %>% names()
+df <- df %>% 
+  select(-uni)
 
-df_immi <- df_immi %>% 
-  drop_na(all_of(to_drop))
+df_uni <- df
 
-df_immi %>% map_int(~sum(is.na(.)))
+rm(df)
 
-# affordability data ---------------------------------------------------------
-
-afford <- read_csv("affordability_ratio_las.csv",
-                   na = c(":", "NA"))
-
-year_range <- as.character(seq(2019,2021,1))
-afford <- afford %>% 
-  rename(la_code = `Local authority code`) %>% 
-  select(la_code, all_of(year_range)) %>% 
-  pivot_longer(cols = all_of(year_range),
-               names_to = "year",
-               values_to = "affordability") %>% 
-  mutate(year = as.double(year))
-
-afford <- afford %>% 
-  arrange(la_code, year) %>% 
-  group_by(la_code) %>% 
-  mutate(afford_lag_one = lag(affordability, n = 1),
-         afford_lag_two = lag(affordability, n = 2)) %>% 
-  ungroup(la_code) %>% 
-  filter(year == 2021) %>% 
-  select(-year)
-
-# merging
-df_immi <- df_immi %>% 
-  left_join(afford, by = "la_code")
-
-df_immi %>% 
-  map_int(~sum(is.na(.)))
-
-# removing scotland
-df_immi <- df_immi %>% drop_na(affordability)
-
-# gdp data --------------------------------------------------------------------
-
-gdp <- read_csv("gdp_per_capita.csv")
-
-gdp_capita <- gdp %>% 
-  rename(la_code = `LA code`,
-         gdp_capita = `2021`) %>% 
-  select(la_code, gdp_capita)
-
-df_immi <- df_immi %>% 
-  left_join(gdp_capita, by = "la_code")
-
-df_immi %>% 
-  map_int(~sum(is.na(.)))
-
-# population data -----------------------------------------------------------
-
-pop <- read_csv("population_change.csv")
-
-names(pop) <- c("la_code", "name", "geography", "area_sqm",
-                "pop_2021", "pop_sqm_2021", "pop_2011", "pop_sqm_2011",
-                "pop_2001", "pop_sqm_2001")
-
-pop <- pop %>% 
-  select(la_code, pop_sqm_2021)
-
-df_immi <- df_immi %>% 
-  left_join(pop, by = "la_code")
-df_immi %>% map_int(~sum(is.na(.)))
-
-# birth country ---------------------------------------------------
-
-load("bc.RData")
-
-bc <- bc %>%
-  filter(year %in% c(2019:2021)) %>%
-  select(oslaua_code, year, foreign_per_1000) %>%
-  na.omit() %>% 
-  pivot_wider(
-    names_from = "year", values_from = "foreign_per_1000"
-  ) %>% 
-  rename(
-    foreign_per_1000 = `2021`,
-    foreign_lag_one = `2020`,
-    foreign_lag_two = `2019`
-  )
-
-df_immi <- df_immi %>% 
-  left_join(bc, by = c("la_code" = "oslaua_code"))
-df_immi %>% map_int(~sum(is.na(.)))
-
-## age of LAs --------------------------------------------------------
-
-load("las_by_age.RData")
-
-las_by_age <- las_by_age %>% 
-  filter(year == 2021) %>% 
-  select(-year)
-
-df_immi <- df_immi %>% 
-  left_join(las_by_age, by = c("la_code" = "oslaua_code"))  %>% 
-  mutate(over_65_pct = ifelse(is.na(over_65_pct_post19),
-                              over_65_pct_pre19, 
-                              over_65_pct_post19),
-         under_15_pct = ifelse(is.na(under_15_pct_post19),
-                               under_15_pct_pre19, 
-                               under_15_pct_post19)) %>% 
-  select(-over_65_pct_post19, -over_65_pct_pre19,
-         -under_15_pct_post19, -under_15_pct_pre19)
-
-# education ---------------------------------------
-
-edu <- read_csv("census_education.csv",
-                na = c("x","NA"))
-
-edu <- edu %>% 
-  rename(la_code = `Area code`,
-         degree_pct = `Level 4 qualifications and above (percent)`) %>% 
-  select(la_code, degree_pct)
-
-df_immi <- df_immi %>% 
-  left_join(edu, by = "la_code")
-
-# manufacturing percentage ------------------------------------------------
-
-manuf <- read_csv("2021_industry_employment.csv")
-
-indus_clean <- function(df){
-  out <- df %>% 
-    filter(str_detect(Area,"ladu")) %>% 
-    rename(oslaua_code = mnemonic,
-           manufacturing = 5) %>% 
-    select(oslaua_code:23) %>% 
-    pivot_longer(
-      cols = 2:22,
-      names_to = "industry",
-      values_to = "employment"
-    ) %>% 
-    group_by(oslaua_code) %>% 
-    mutate(total_employment = sum(employment),
-           manuf_pct = employment / total_employment) %>% 
-    ungroup() %>% 
-    filter(industry == "manufacturing")
-  return(out)
-}
-
-manuf <- indus_clean(manuf) %>% 
-  rename(la_code = oslaua_code) %>% 
-  select(la_code, manuf_pct)
-
-df_immi <- df_immi %>% 
-  left_join(manuf, by = "la_code")
-
-df_immi %>% map_int(~sum(is.na(.)))
-
-# region --------------------------------------------------------------------
-
-region <- read_csv("lasregionew2021lookup.csv")
-
-region <- region %>% 
-  rename(la_code = `LA code`,
-         region_code = `Region code`) %>% 
-  select(la_code, region_code)
-
-df_immi <- df_immi %>% 
-  left_join(region, by = "la_code")
-
-# scaling variables --------------------------------------------------------
-
-# renaming originals
-level_twos <- df_immi %>% select(affordability:manuf_pct) %>% names()
-rename_raw <- function(df, vars){
-  df <- df %>% 
-    mutate(across({{vars}}, \(x) x = x, .names = "{.col}_raw"))
-  return(df)
-}
-
-df_immi  <- df_immi %>% rename_raw(all_of(level_twos))
-
-# scaling
-df_immi[level_twos] <- df_immi[level_twos] %>%
-  map_df(scale_this)
-
-##############################################################################
-# immigself ------------------------------------------------------------------
-##############################################################################
-
-# reordering immigSelf
-df_immi <- df_immi %>% 
-  rename(immigSelf_pro = immigSelf) %>% 
-  mutate(immigSelf = 10 - immigSelf_pro)
-
-df_immi %>% 
-  count(immigSelf, immigSelf_pro)
-
-# ols null model
-immi_fit <- lm(immigSelf ~ 1, data = df_immi)
-
-# lmer null model
-immi_lmer <- lmer(immigSelf ~ (1|la_code), data = df_immi)
-
-logLik(immi_fit)
-logLik(immi_lmer)
-2 * (logLik(immi_lmer) - logLik(immi_fit))
-
-# lmer null model with region
-immi_reg <- lmer(immigSelf ~ (1|region_code) + (1|region_code:la_code),
-                 data = df_immi, REML = FALSE)
-
-anova(immi_lmer, immi_reg)
-
-# multivariate ------------------------------------------------
-
-immi_multi <- lmer(immigSelf ~ white_british + 
-                     no_religion + uni_full +
-                     social_housing + private_renting + 
-                     homeowner + age + 
-                     c1_c2 + d_e + non_uk_born +
-                     (1|region_code) + (1|region_code:la_code),
-                   data = df_immi, REML = FALSE)
-
-summary(immi_multi)
-
-# including level 2 predictors  ------------------------------
-
-immi_con <- lmer(immigSelf ~ white_british + 
-                   no_religion + uni_full +
-                   social_housing + private_renting + 
-                   homeowner + age + 
-                   c1_c2 + d_e + non_uk_born + 
-                   affordability + gdp_capita +
-                   pop_sqm_2021 + foreign_per_1000  + 
-                   over_65_pct + under_15_pct + 
-                   degree_pct + 
-                   manuf_pct +
-                   (1|region_code) + (1|region_code:la_code),
-                 data = df_immi, REML = FALSE)
-summary(immi_con)
-
-anova(immi_multi, immi_con)
-
-# cross level interaction ------------------------------------------------------
-
-immi_int <- lmer(immigSelf ~ (social_housing * affordability) +
-                   (homeowner * affordability) +
-                   white_british + 
-                   no_religion + uni_full +
-                   private_renting + age + 
-                   c1_c2 + d_e + non_uk_born + 
-                   gdp_capita +
-                   pop_sqm_2021 + foreign_per_1000 + 
-                   over_65_pct + under_15_pct + 
-                   degree_pct + 
-                   manuf_pct +
-                   (1|region_code) + (1|region_code:la_code),
-                 data = df_immi, REML = FALSE)
-summary(immi_int)
-
-anova(immi_con, immi_int)
-
-# plotting coefficients ------------------------------------------------
-
-plot_names <- tibble(
-  term = names(fixef(immi_int))[-1],
-  var_name = c("Social housing", "Affordability", "Homeowner",
-               "White British", "No religion", "University graduate",
-               "Private renter", "Age", "Social class: C1-C2",
-               "Social class: D-E", "Non-UK born", "GDP per capita",
-               "Population density", "Non-UK born population", "Over 65 %", "Under 15 %",
-               "Graduate %", "Manufacturing %", "Affordability:Social housing",
-               "Affordability:Homeowner"),
-  grouping = c("Housing", "Housing", "Housing",
-               "Individual","Individual", "Individual",
-               "Housing", "Individual", "Individual", 
-               "Individual", "Individual", "Local", 
-               "Local", "Local", "Local", "Local",
-               "Local", "Local","Housing", "Housing")
-) %>% 
-  mutate(grouping = fct_relevel(as.factor(grouping), 
-                                c("Housing", "Individual",
-                                  "Local")))
-
-lmer_coefs(immi_int, "boot", plot_names)
-
-## immigration lagged effects ------------------------------------------------
-
-immi_lag1 <- lmer(immigSelf ~ (social_housing * afford_lag_one) +
-                    (homeowner * afford_lag_one) +
-                    white_british +
-                    no_religion + uni_full +
-                    private_renting + age +
-                    c1_c2 + d_e + non_uk_born +
-                    gdp_capita +
-                    pop_sqm_2021 + foreign_lag_one +
-                    over_65_pct + under_15_pct +
-                    degree_pct +
-                    manuf_pct +
-                    (1|region_code) + (1|region_code:la_code),
-                  data = df_immi, REML = FALSE)
-summary(immi_lag1)
-
-immi_lag2 <- lmer(immigSelf ~ (social_housing * afford_lag_two) +
-                    (homeowner * afford_lag_two) +
-                    white_british + no_religion + uni_full +
-                    private_renting + age +
-                    c1_c2 + d_e + non_uk_born +
-                    gdp_capita + pop_sqm_2021 + foreign_lag_two +
-                    over_65_pct + under_15_pct +
-                    degree_pct + manuf_pct +
-                    (1|region_code) + (1|region_code:la_code),
-                  data = df_immi, REML = FALSE)
-summary(immi_lag2)
-
-AIC(immi_int, immi_lag1, immi_lag2)
+save(df_uni, file = "df_uni.RData")
