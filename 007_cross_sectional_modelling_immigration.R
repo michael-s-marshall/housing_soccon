@@ -263,7 +263,7 @@ p1 <- immi_dummy %>%
   mutate(
     tenure = ifelse(social_housing == 1 & homeowner == 0, "Social housing",
                     ifelse(homeowner == 1 & social_housing == 0, "Homeowner",
-                           ifelse(social_housing == 0 & homeowner == 0, "Control",
+                           ifelse(social_housing == 0 & homeowner == 0, "Other",
                                   "remove")))
   ) %>% 
   filter(tenure != "remove") %>% 
@@ -278,7 +278,7 @@ p1 <- immi_dummy %>%
   drop_gridlines() +
   scale_colour_viridis_d(option = "D") +
   scale_fill_viridis_d(option = "D") +
-  labs(x = "Affordability ratio",
+  labs(x = NULL,
        y = "Anti-immigration (predicted values)",
        colour = "Tenure",
        fill = "Tenure") +
