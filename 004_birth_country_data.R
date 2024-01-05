@@ -1,3 +1,7 @@
+pacman::p_load(tidyverse)
+
+rm(list = ls())
+
 bc_2016 <- read_csv("Birth country data/birth_country_2016.csv",
                     na = c(":",""))
 map_chr(bc_2016, class)
