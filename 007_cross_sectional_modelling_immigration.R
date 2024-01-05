@@ -6,6 +6,10 @@ rm(list = ls())
 
 load("cross_sectional_df.RData")
 
+# lmer_coefs function ------------------------------------------
+
+source("001_lmer_coefs_function.R")
+
 ##############################################################################
 # immigself ------------------------------------------------------------------
 ##############################################################################
@@ -189,7 +193,7 @@ immi_int_price <- lmer(immigSelf ~ (social_housing * prices) +
                        data = df_immi_price, REML = FALSE)
 summary(immi_int_price)
 
-# visualising social housing interaction ------------------------------
+# visualising interaction term ------------------------------
 
 # making interaction terms with raw values
 df_immi <- df_immi %>% 
@@ -217,7 +221,7 @@ immi_dummy <- expand.grid(
   white_british = c(mean(df_immi$white_british)),
   no_religion = c(mean(df_immi$no_religion)),
   uni = c(mean(df_immi$uni)),
-  homeowner = c(mean(df_immi$homeowner)),
+  homeowner = c(0,1),
   private_renting = c(mean(df_immi$private_renting)),
   age = mean(df_immi$age),
   c1_c2 = c(mean(df_immi$c1_c2)),
@@ -255,18 +259,29 @@ immi_dummy <- immi_dummy %>%
 
 pacman::p_load(patchwork)
 
-p1 <- immi_dummy %>% 
+p1 <- immi_dummy %>%
+  mutate(
+    tenure = ifelse(social_housing == 1 & homeowner == 0, "Social housing",
+                    ifelse(homeowner == 1 & social_housing == 0, "Homeowner",
+                           ifelse(social_housing == 0 & homeowner == 0, "Control",
+                                  "remove")))
+  ) %>% 
+  filter(tenure != "remove") %>% 
+  mutate(tenure = fct_drop(tenure)) %>% 
   ggplot(aes(x = affordability_raw, y = fit,
-             colour = as.factor(social_housing))) +
-  geom_ribbon(aes(ymin = LL, ymax = UL, group = as.factor(social_housing)),
-              colour = "lightgrey", alpha = 0.25) +
+             colour = tenure)) +
+  geom_ribbon(aes(ymin = LL, ymax = UL, group = tenure, fill = tenure,
+                  colour = NULL),
+              alpha = 0.2) +
   geom_line(linewidth = 2.5) +
   theme_bw() +
   drop_gridlines() +
   scale_colour_viridis_d(option = "D") +
+  scale_fill_viridis_d(option = "D") +
   labs(x = "Affordability ratio",
        y = "Anti-immigration (predicted values)",
-       colour = "Social housing") +
+       colour = "Tenure",
+       fill = "Tenure") +
   coord_cartesian(ylim = c(5.5,8.5)) +
   theme(legend.position = "top")
 
@@ -279,60 +294,3 @@ p2 <- df_immi %>%
   labs(x = "Affordability ratio", y = "Density")
 
 p1 / p2
-
-# visualising homeownership interaction ------------------------------
-
-immi_dummy2 <- expand.grid(
-  white_british = c(mean(df_immi$white_british)),
-  no_religion = c(mean(df_immi$no_religion)),
-  uni = c(mean(df_immi$uni)),
-  homeowner = c(0,1),
-  private_renting = c(mean(df_immi$private_renting)),
-  age = mean(df_immi$age),
-  c1_c2 = c(mean(df_immi$c1_c2)),
-  d_e = c(mean(df_immi$d_e)),
-  non_uk_born = c(mean(df_immi$non_uk_born)),
-  gdp_capita = c(mean(df_immi$gdp_capita)),
-  pop_sqm_2021 = c(mean(df_immi$pop_sqm_2021)),
-  foreign_per_1000 = c(mean(df_immi$foreign_per_1000)),
-  over_65_pct = c(mean(df_immi$over_65_pct)),
-  under_15_pct = c(mean(df_immi$under_15_pct)),
-  degree_pct = c(mean(df_immi$degree_pct)),
-  manuf_pct = c(mean(df_immi$manuf_pct)),
-  social_housing = c(mean(df_immi$social_housing)),
-  affordability_raw = x_scale
-) %>% 
-  mutate(social_housing.affordability = social_housing * affordability_raw,
-         homeowner.affordability = homeowner * affordability_raw)
-
-xmat2 <- immi_dummy2 %>%
-  mutate(int = 1, .before = 1) %>%
-  select(int, all_of(vars_order)) %>%
-  as.matrix()
-
-immi_dummy2$fit <- xmat2 %*% fixed
-
-immi_dummy2$SE <- xmat2 %*% acov %*% t(xmat2) %>%
-  diag() %>%
-  sqrt()
-
-immi_dummy2 <- immi_dummy2 %>%
-  mutate(LL = fit - qnorm(0.975)*SE,
-         UL = fit + qnorm(0.975)*SE)
-
-p3 <- immi_dummy2 %>% 
-  ggplot(aes(x = affordability_raw, y = fit,
-             colour = as.factor(homeowner))) +
-  geom_ribbon(aes(ymin = LL, ymax = UL, group = as.factor(homeowner)),
-              colour = "lightgrey", alpha = 0.25) +
-  geom_line(linewidth = 2.5) +
-  theme_bw() +
-  drop_gridlines() +
-  scale_colour_viridis_d(option = "D") +
-  labs(x = "Affordability ratio",
-       y = "Anti-immigration (predicted values)",
-       colour = "Homeowner") +
-  coord_cartesian(ylim = c(5.5,8.5)) +
-  theme(legend.position = "top")
-
-p3 / p2
