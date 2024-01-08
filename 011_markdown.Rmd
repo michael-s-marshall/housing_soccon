@@ -1,0 +1,42 @@
+---
+title: "markdown_test"
+output: html_document
+date: "2024-01-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include = FALSE, warning=FALSE)
+```
+
+## R Markdown
+
+```{r}
+pacman::p_load(tidyverse, haven, jtools, lme4, lmerTest, lfe, sjPlot)
+rm(list = ls())
+```
+
+```{r, include=TRUE}
+# plot
+readRDS("working/markdown_viz/immi_coefs.RDS")
+readRDS("working/markdown_viz/equality_coefs.RDS")
+readRDS("working/markdown_viz/int_plot.RDS")
+```
+
+```{r, include=TRUE, results = 'asis'}
+immi_int <- readRDS("working/markdown_data/immi_tab.RDS")
+equal_int <- readRDS("working/markdown_data/equal_int.RDS")
+immi_long <- readRDS("working/markdown_data/immi_int_long.RDS")
+
+tab_model(immi_int,  equal_int, immi_long, p.style = "stars", show.aic = T, 
+          terms = c("social_housing", "homeowner", 
+                    "private_renting", "affordability", 
+                    "social_housing.affordability", 
+                    "homeowner.affordability", "affordability_mean"),
+          pred.labels = c("Social renter", "Homeowner", "Private renter",
+                          "Affordability",
+                          "Social renter * Affordability", 
+                          "Homeowner * Affordability",
+                          "Affordability group mean"),
+          dv.labels = c("Anti-immigration", "Anti-racial equality", "Anti-immigration\n(longitudinal)"))
+```
+

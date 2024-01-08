@@ -103,6 +103,8 @@ summary(immi_int)
 
 anova(immi_con, immi_int)
 
+saveRDS(immi_int, file = "working/markdown_data/immi_int.RDS")
+
 # plotting coefficients ------------------------------------------------
 
 plot_names <- tibble(
@@ -125,7 +127,11 @@ plot_names <- tibble(
                                 c("Housing", "Individual",
                                   "Local")))
 
-lmer_coefs(immi_int, "boot", plot_names)
+immi_coefs <- lmer_coefs(immi_int, "boot", plot_names)
+
+immi_coefs
+
+saveRDS(immi_coefs, file = "working/markdown_viz/immi_coefs.RDS")
 
 # robustness check - with uni predictions ------------------------------
 
@@ -151,6 +157,8 @@ immi_int_preds <- lmer(immigSelf ~ (social_housing * affordability) +
                        data = df_immi_preds, REML = FALSE)
 summary(immi_int_preds)
 
+saveRDS(immi_int_preds, file = "working/markdown_data/immi_int_preds.RDS")
+
 # robustness check - log scale -------------------------------------
 
 immi_log <- lmer(immigSelf ~ (social_housing * affordability_log) +
@@ -167,6 +175,8 @@ immi_log <- lmer(immigSelf ~ (social_housing * affordability_log) +
 summary(immi_log)
 
 AIC(immi_int, immi_log)
+
+saveRDS(immi_log, file = "working/markdown_data/immi_log.RDS")
 
 # robustness check - with prices -------------------------------------
 
@@ -192,6 +202,8 @@ immi_int_price <- lmer(immigSelf ~ (social_housing * prices) +
                          (1|la_code),
                        data = df_immi_price, REML = FALSE)
 summary(immi_int_price)
+
+saveRDS(immi_int_price, file = "working/markdown_data/immi_int_price.RDS")
 
 # visualising interaction term ------------------------------
 
@@ -293,4 +305,32 @@ p2 <- df_immi %>%
   drop_gridlines() +
   labs(x = "Affordability ratio", y = "Density")
 
-p1 / p2
+int_plot <- p1 / p2
+
+int_plot
+
+saveRDS(int_plot, file = "working/markdown_viz/int_plot.RDS")
+
+# model for table --------------------------------------------------------------
+
+df_immi <- df_immi %>% 
+  mutate(social_housing.affordability = social_housing * affordability,
+         homeowner.affordability = homeowner * affordability)
+
+immi_tab <- lmer(immigSelf ~ social_housing + homeowner + private_renting +  
+                   affordability +
+                   white_british + 
+                   no_religion + uni +
+                   age + 
+                   c1_c2 + d_e + non_uk_born + 
+                   gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
+                   over_65_pct + under_15_pct + 
+                   degree_pct + manuf_pct +
+                   social_housing.affordability + 
+                   homeowner.affordability +
+                   (1|la_code),
+                 data = df_immi, REML = FALSE)
+summary(immi_tab)
+summary(immi_int)
+
+saveRDS(immi_tab, file = "working/markdown_data/immi_tab.RDS")

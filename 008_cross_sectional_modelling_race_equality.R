@@ -294,6 +294,8 @@ anova(equal_con, equal_int)
 
 marginals <- margins(equal_int, type = "response")
 
+saveRDS(marginals, file = "working/markdown_data/marginals.RDS")
+
 plot_names <- tibble(
   term = marginals %>%
     summary %>% 
@@ -317,7 +319,7 @@ plot_names <- tibble(
                                   "Local")))
 
 # plotting marginal effects
-marginals %>%
+equality_coefs <- marginals %>%
   summary %>% 
   as_tibble %>%
   left_join(plot_names, by = c("factor" = "term")) %>% 
@@ -339,3 +341,25 @@ marginals %>%
   theme(legend.position = "top",
         strip.text = element_text(face = "bold")) +
   scale_colour_manual(values = c("black","grey65"))
+
+equality_coefs
+
+saveRDS(equality_coefs, file = "working/markdown_viz/equality_coefs.RDS")
+
+# for table ---------------------------------------
+
+equal_int2 <- glmer(equality_too_far ~ 
+                     social_housing + homeowner +  private_renting + 
+                     affordability +
+                     white_british + no_religion + uni +
+                     age +
+                     c1_c2 + d_e + non_uk_born +
+                     gdp_capita + pop_sqm_2021 + foreign_per_1000 +
+                     over_65_pct + under_15_pct + degree_pct +
+                     manuf_pct + 
+                     social_housing.affordability +
+                     homeowner.affordability + (1|la_code),
+                   data = df_equal, family = binomial("logit"))
+summary(equal_int2)
+
+saveRDS(equal_int2, file = "working/markdown_data/equal_int.RDS")

@@ -66,6 +66,8 @@ immi_fe <- felm(immigSelf ~ affordability +
                 data = immig_df)
 summary(immi_fe)
 
+saveRDS(immi_fe, file = "working/markdown_data/immi_fe.RDS")
+
 immi_fe2 <- lmer(immigSelf ~ affordability +
                    pop_density + foreign_per_1000 +
                    over_65_pct + under_15_pct +
@@ -125,9 +127,12 @@ immi_lv1 <- lmer(immigSelf ~ affordability_mean + affordability +
                  data = immig_df, REML = FALSE)
 summary(immi_lv1)
 
-immi_int <- lmer(immigSelf ~ (social_housing * affordability) +
-                   (homeowner * affordability) +
-                   affordability_mean + # affordability +
+immig_df <- immig_df %>% 
+  mutate(social_housing.affordability = social_housing * affordability,
+         homeowner.affordability = homeowner * affordability)
+
+immi_int <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
+                   affordability +
                    pop_density + pop_density_mean +
                    foreign_per_1000 + foreign_per_1000_mean +
                    over_65_pct + over_65_pct_mean +
@@ -135,12 +140,17 @@ immi_int <- lmer(immigSelf ~ (social_housing * affordability) +
                    gdp_capita + gdp_capita_mean +
                    manuf_pct + manuf_pct_mean +
                    uni + white + no_religion + c1_c2 + 
-                   d_e + non_uk_born + private_renting +
+                   d_e + non_uk_born + 
                    #homeowner + social_housing +
                    year_c + degree_pct +
+                   social_housing.affordability +
+                   homeowner.affordability +
+                   affordability_mean + 
                    (1|oslaua_code) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_int)
+
+saveRDS(immi_int, file = "working/markdown_data/immi_int_long.RDS")
 
 anova(immi_fe3, immi_lv1)
 anova(immi_lv1, immi_int)
@@ -164,6 +174,8 @@ immi_log <- lmer(immigSelf ~ (social_housing * affordability_log) +
                  data = immig_df, REML = FALSE)
 summary(immi_log)
 
+saveRDS(immi_log, file = "working/markdown_data/immi_log_long.RDS")
+
 # robustness check - prices -------------------------------------------
 
 immi_price <- lmer(immigSelf ~ (social_housing * prices) +
@@ -181,6 +193,8 @@ immi_price <- lmer(immigSelf ~ (social_housing * prices) +
                      (1|oslaua_code) + (1|id),
                    data = immig_df_price, REML = FALSE)
 summary(immi_price)
+
+saveRDS(immi_price, file = "working/markdown_data/immi_price_long.RDS")
 
 # robustness check - degree percent change ---------------------------
 
@@ -200,3 +214,4 @@ immi_int2 <- lmer(immigSelf ~ (social_housing * affordability) +
                   data = immig_df_change, REML = FALSE)
 summary(immi_int2)
 
+saveRDS(immi_int2, file = "working/markdown_data/immi_int2_long.RDS")
