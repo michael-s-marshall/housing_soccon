@@ -95,7 +95,8 @@ df <- df %>%
   ) %>% 
   mutate(wave_n = select(., in_2016:in_2021) %>%  rowSums(na.rm = T),
          gor = as_factor(gor)) %>% 
-  arrange(id, year)
+  arrange(id, year) %>% 
+  filter(wave_n >= 3)
 
 # affordability ---------------------------------------------------------
 

@@ -306,7 +306,7 @@ plot_names <- tibble(
                "Graduate %", "Non-UK born population","GDP per capita",
                "Homeowner","Affordability:Homeowner", "Manufacturing %",
                "No religion", "Non-UK born", "Over 65 %", "Population density",
-               "Private renter", "Social housing", "Affordability:Social housing",
+               "Private renter", "Social renter", "Affordability:Social renter",
                "Under 15 %", "University graduate", "White British"),
   grouping = c("Housing", "Individual","Individual", "Individual",
                "Local", "Local", "Local", "Housing", "Housing", "Local",

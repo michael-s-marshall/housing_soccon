@@ -109,12 +109,12 @@ saveRDS(immi_int, file = "working/markdown_data/immi_int.RDS")
 
 plot_names <- tibble(
   term = names(fixef(immi_int))[-1],
-  var_name = c("Social housing", "Affordability", "Homeowner",
+  var_name = c("Social renter", "Affordability", "Homeowner",
                "White British", "No religion", "University graduate",
                "Private renter", "Age", "Social class: C1-C2",
                "Social class: D-E", "Non-UK born", "GDP per capita",
                "Population density", "Non-UK born population", "Over 65 %", "Under 15 %",
-               "Graduate %", "Manufacturing %", "Affordability:Social housing",
+               "Graduate %", "Manufacturing %", "Affordability:Social renter",
                "Affordability:Homeowner"),
   grouping = c("Housing", "Housing", "Housing",
                "Individual","Individual", "Individual",
@@ -291,7 +291,7 @@ p1 <- immi_dummy %>%
   scale_colour_viridis_d(option = "D") +
   scale_fill_viridis_d(option = "D") +
   labs(x = NULL,
-       y = "Anti-immigration (predicted values)",
+       y = "Anti-immigration",
        colour = "Tenure",
        fill = "Tenure") +
   coord_cartesian(ylim = c(5.5,8.5)) +

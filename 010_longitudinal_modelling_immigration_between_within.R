@@ -67,6 +67,8 @@ immi_fe <- felm(immigSelf ~ affordability +
                 data = immig_df)
 summary(immi_fe)
 
+saveRDS(immi_fe, file = "working/markdown_data/immi_fe.RDS")
+
 immi_fe2 <- lmer(immigSelf ~ affordability_within +
                    pop_density_within + foreign_per_1000_within +
                    over_65_pct_within + under_15_pct_within +
@@ -126,8 +128,14 @@ immi_lv1 <- lmer(immigSelf ~ affordability_mean + affordability_within +
                  data = immig_df, REML = FALSE)
 summary(immi_lv1)
 
-immi_int <- lmer(immigSelf ~ (social_housing * affordability_mean) +
-                   (homeowner * affordability_mean) +
+immig_df <- immig_df %>% 
+  mutate(social_housing.affordability_mean = social_housing * affordability_mean,
+         homeowner.affordability_mean = homeowner * affordability_mean)
+
+immi_int <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
+                   affordability_mean +
+                   social_housing.affordability_mean +
+                   homeowner.affordability_mean + 
                    affordability_within + # affordability +
                    pop_density_within + pop_density_mean +
                    foreign_per_1000_within + foreign_per_1000_mean +
@@ -136,7 +144,7 @@ immi_int <- lmer(immigSelf ~ (social_housing * affordability_mean) +
                    gdp_capita_within + gdp_capita_mean +
                    manuf_pct_within + manuf_pct_mean +
                    uni + white + no_religion + c1_c2 + 
-                   d_e + non_uk_born + private_renting +
+                   d_e + non_uk_born + # private_renting +
                    #homeowner + social_housing +
                    year_c + degree_pct +
                    (1|oslaua_code) + (1|id),
@@ -145,6 +153,8 @@ summary(immi_int)
 
 anova(immi_fe3, immi_lv1)
 anova(immi_lv1, immi_int)
+
+saveRDS(immi_int, file = "working/markdown_data/immi_int_long.RDS")
 
 # robustness check - log affordability ---------------------------------
 

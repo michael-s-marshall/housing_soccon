@@ -8,19 +8,66 @@ date: "2024-01-08"
 knitr::opts_chunk$set(echo = FALSE, include = FALSE, warning=FALSE)
 ```
 
-## R Markdown
-
 ```{r}
 pacman::p_load(tidyverse, haven, jtools, lme4, lmerTest, lfe, sjPlot)
 rm(list = ls())
 ```
 
+## Cross-sectional anti-immigration modelling
+
+Dependent variable and model:  
+
+* Opposition to immigration measured on an 11-point scale from 0 (should allow many more immigrants) to 10 (should allow far fewer immigrants)  
+* Nested multilevel linear model with random intercepts for local authorities, with cross-level interactions between housing affordability and a) social renting and b) homeownership  
+* Affordability measured via the ratio of median house prices to median earnings in a local authority; as such, a higher number indicates more unaffordable housing  
+
+Key findings:  
+
+* The association between affordability and opposition to immigration is conditional on tenure
+* A positive interaction exists between social renting and unaffordability  
+* A negative interaction exists between homeownership and unaffordability  
+* Findings robust to log transformation of affordability, using log of house prices as independent variable, and supplementing data with model predictions for whether respondents attended university  
+
 ```{r, include=TRUE}
 # plot
 readRDS("working/markdown_viz/immi_coefs.RDS")
-readRDS("working/markdown_viz/equality_coefs.RDS")
+```
+
+The figure below displays the interaction terms. It also shows that once controlling for the confounding influence of the percentage of people with degrees in a local authority, for many tenures there is a positive association between high house prices and right wing political attitudes.  
+
+```{r, include = TRUE}
 readRDS("working/markdown_viz/int_plot.RDS")
 ```
+
+## Cross-sectional racial equality modelling
+
+Dependent variable and model:  
+
+* Opposition to racial equality measured as a binary indicator (1 = racial equality has "gone too far" or "gone too much far")  
+* Nested multilevel logit model with random intercepts for local authorities, with cross-level interactions between housing affordability and a) social renting and b) homeownership  
+
+Key findings:  
+
+* No effect of housing affordability, or the interaction terms
+* Homeowners more likely to think racial equality has gone too far than other tenures  
+
+```{r, include=TRUE}
+readRDS("working/markdown_viz/equality_coefs.RDS")
+```
+
+## Longitudinal anti-immigration modelling
+
+Data and modelling strategy:
+
+* Six waves of the British Election Study (BES) ranging from 2016-2021, filtered to respondents who participated in at least three waves  
+* Random effect within-between (REWB) model with two-way cross-classified structure i.e. random intercept for respondent and random intercept for local authority  
+* Cross-level interaction between between authority affordability and tenure (i.e. social renting and homeonwership, respectively)  
+
+Key findings:  
+
+* Association of between affordability with opposition to immmigration is again contingent upon tenure, with the direction of the interactions consistent with the cross-sectional modelling  
+* Variation in affordability within local authorities also associated with the outcome variable; declining affordability within a local authority associated with more opposition to immigration  
+* Findings robust to log scale of affordability, use of log house prices as independent variable, inclusion of change in the percentage of people degree educated between censuses as a control variable, and modelling of within local authority change via a fixed effects model  
 
 ```{r, include=TRUE, results = 'asis'}
 immi_int <- readRDS("working/markdown_data/immi_tab.RDS")
@@ -31,12 +78,18 @@ tab_model(immi_int,  equal_int, immi_long, p.style = "stars", show.aic = T,
           terms = c("social_housing", "homeowner", 
                     "private_renting", "affordability", 
                     "social_housing.affordability", 
-                    "homeowner.affordability", "affordability_mean"),
+                    "homeowner.affordability", "affordability_mean",
+                    "social_housing.affordability_mean",
+                    "homeowner.affordability_mean",
+                    "affordability_within"),
           pred.labels = c("Social renter", "Homeowner", "Private renter",
                           "Affordability",
                           "Social renter * Affordability", 
                           "Homeowner * Affordability",
-                          "Affordability group mean"),
+                          "Affordability between",
+                          "Social renter * Affordability between",
+                          "Homeowner * Affordability between",
+                          "Affordability within"),
           dv.labels = c("Anti-immigration", "Anti-racial equality", "Anti-immigration\n(longitudinal)"))
 ```
 
