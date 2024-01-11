@@ -236,6 +236,19 @@ manuf <- indus_clean(manuf) %>%
 df <- df %>% 
   left_join(manuf, by = "la_code")
 
+# region --------------------------------------------------------------------
+
+region <- read_csv("lasregionew2021lookup.csv")
+
+region <- region %>% 
+  rename(la_code = `LA code`,
+         region_code = `Region code`) %>% 
+  select(la_code, region_code)
+
+df <- df %>% 
+  left_join(region, by = "la_code") %>% 
+  mutate(london = ifelse(region_code == "E12000007", 1, 0))
+
 # scaling variables --------------------------------------------------------
 
 # renaming originals
@@ -259,7 +272,7 @@ df <- df %>%
          uni_pred, uni_full, white_british,  no_religion, c1_c2, d_e, 
          own_outright, own_mortgage, social_housing, private_renting, 
          age, age_raw, non_uk_born, homeowner, 
-         all_of(level_twos), contains("raw"))
+         all_of(level_twos), contains("raw"), region_code, london)
 
 # reordering immigSelf ------------------------------------------------
 

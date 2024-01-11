@@ -205,6 +205,41 @@ summary(immi_int_price)
 
 saveRDS(immi_int_price, file = "working/markdown_data/immi_int_price.RDS")
 
+# robustness check - dummy for london ----------------------------------
+
+immi_lon <- lmer(immigSelf ~ (social_housing * affordability) +
+                   (homeowner * affordability) +
+                   white_british + 
+                   no_religion + uni +
+                   private_renting + age + 
+                   c1_c2 + d_e + non_uk_born + 
+                   gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
+                   over_65_pct + under_15_pct + 
+                   degree_pct + manuf_pct + london +
+                   (1|la_code),
+                 data = df_immi, REML = FALSE)
+summary(immi_lon)
+
+anova(immi_int, immi_lon) # no benefit of adding London dummy
+
+# robustness check - regional level 3 --------------------------
+
+immi_reg <- lmer(immigSelf ~ (social_housing * affordability) +
+                   (homeowner * affordability) +
+                   white_british + 
+                   no_religion + uni +
+                   private_renting + age + 
+                   c1_c2 + d_e + non_uk_born + 
+                   gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
+                   over_65_pct + under_15_pct + 
+                   degree_pct + manuf_pct +
+                   (1|region_code) + (1|region_code:la_code),
+                 data = df_immi, REML = FALSE)
+
+summary(immi_reg)
+
+anova(immi_int, immi_reg) # no benefit of adding region intercept
+
 # visualising interaction term ------------------------------
 
 # making interaction terms with raw values
