@@ -18,7 +18,7 @@ source("001_lmer_coefs_function.R")
 
 df_immi <- df %>% 
   select(-tory_2019, -uni_propensity, -uni_pred,
-         -uni_full, -prices, -prices_raw)
+         -uni_full, -prices, -prices_raw, -uni)
 
 df_immi %>% map_int(~sum(is.na(.)))
 
@@ -60,7 +60,7 @@ logLik(immi_lmer)
 # multivariate ------------------------------------------------
 
 immi_multi <- lmer(immigSelf ~ white_british + 
-                     no_religion + uni +
+                     no_religion + edu_20plus +
                      social_housing + private_renting + 
                      homeowner + age + 
                      c1_c2 + d_e + non_uk_born +
@@ -72,7 +72,7 @@ summary(immi_multi)
 # including level 2 predictors  ------------------------------
 
 immi_con <- lmer(immigSelf ~ white_british + 
-                   no_religion + uni +
+                   no_religion + edu_20plus +
                    social_housing + private_renting + 
                    homeowner + age + 
                    c1_c2 + d_e + non_uk_born + 
@@ -91,7 +91,7 @@ anova(immi_multi, immi_con)
 immi_int <- lmer(immigSelf ~ (social_housing * affordability) +
                    (homeowner * affordability) +
                    white_british + 
-                   no_religion + uni +
+                   no_religion + edu_20plus +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
                    gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
@@ -164,7 +164,7 @@ saveRDS(immi_int_preds, file = "working/markdown_data/immi_int_preds.RDS")
 immi_log <- lmer(immigSelf ~ (social_housing * affordability_log) +
                    (homeowner * affordability_log) +
                    white_british + 
-                   no_religion + uni +
+                   no_religion + edu_20plus +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
                    gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
@@ -183,7 +183,7 @@ saveRDS(immi_log, file = "working/markdown_data/immi_log.RDS")
 df_immi_price <- df %>% 
   select(-tory_2019, -uni_propensity, -uni_pred,
          -uni_full, -affordability, -affordability_raw,
-         -affordability_log, -affordability_log_raw)
+         -affordability_log, -affordability_log_raw, -uni)
 
 df_immi_price %>% map_int(~sum(is.na(.)))
 
@@ -193,7 +193,7 @@ df_immi_price <- df_immi_price %>% na.omit()
 immi_int_price <- lmer(immigSelf ~ (social_housing * prices) +
                          (homeowner * prices) +
                          white_british +
-                         no_religion + uni +
+                         no_religion + edu_20plus +
                          private_renting + age +
                          c1_c2 + d_e + non_uk_born +
                          gdp_capita + pop_sqm_2021 + foreign_per_1000 +
@@ -210,7 +210,7 @@ saveRDS(immi_int_price, file = "working/markdown_data/immi_int_price.RDS")
 immi_lon <- lmer(immigSelf ~ (social_housing * affordability) +
                    (homeowner * affordability) +
                    white_british + 
-                   no_religion + uni +
+                   no_religion + edu_20plus +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
                    gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
@@ -220,14 +220,14 @@ immi_lon <- lmer(immigSelf ~ (social_housing * affordability) +
                  data = df_immi, REML = FALSE)
 summary(immi_lon)
 
-anova(immi_int, immi_lon) # no benefit of adding London dummy
+anova(immi_int, immi_lon) # mixed evidence of incl. london dummy
 
 # robustness check - regional level 3 --------------------------
 
 immi_reg <- lmer(immigSelf ~ (social_housing * affordability) +
                    (homeowner * affordability) +
                    white_british + 
-                   no_religion + uni +
+                   no_religion + edu_20plus +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
                    gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
@@ -238,7 +238,44 @@ immi_reg <- lmer(immigSelf ~ (social_housing * affordability) +
 
 summary(immi_reg)
 
-anova(immi_int, immi_reg) # no benefit of adding region intercept
+anova(immi_int, immi_reg) # mixed evidence of needing to include region
+
+# robustness check - education age > uni ---------------------------
+
+df_uni <- df %>%
+  select(-tory_2019, -uni_propensity, -uni_pred,
+         -uni_full, -prices, -prices_raw)
+
+df_uni %>% select(uni, edu_20plus) %>% map_int(~sum(is.na(.)))
+
+df_uni <- df_uni %>% select(-edu_20plus) %>% na.omit()
+
+immi_uni <- lmer(immigSelf ~ (social_housing * affordability) +
+                   (homeowner * affordability) +
+                   white_british + 
+                   no_religion + uni +
+                   private_renting + age + 
+                   c1_c2 + d_e + non_uk_born + 
+                   gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
+                   over_65_pct + under_15_pct + 
+                   degree_pct + manuf_pct +
+                   (1|la_code),
+                 data = df_uni, REML = FALSE)
+
+summary(immi_uni)
+
+tibble(
+  edu_model = fixef(immi_int),
+  uni_model = fixef(immi_uni),
+  var = names(fixef(immi_int))
+) %>% 
+  pivot_longer(cols = uni_model:edu_model,
+               names_to = "model",
+               values_to = "estimate") %>%
+  filter(var != "(Intercept)") %>% 
+  ggplot(aes(x = estimate, y = var, fill = model)) +
+  geom_col(position = "dodge", colour = "black") +
+  scale_fill_brewer(palette = "Dark2")
 
 # visualising interaction term ------------------------------
 
@@ -251,7 +288,7 @@ immi_viz <- lmer(immigSelf ~ social_housing.affordability +
                    homeowner.affordability +
                    social_housing + homeowner + affordability_raw +
                    white_british + 
-                   no_religion + uni +
+                   no_religion + edu_20plus +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
                    gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
@@ -267,7 +304,7 @@ x_scale <- seq(min(df_immi$affordability_raw),
 immi_dummy <- expand.grid(
   white_british = c(mean(df_immi$white_british)),
   no_religion = c(mean(df_immi$no_religion)),
-  uni = c(mean(df_immi$uni)),
+  edu_20plus = c(mean(df_immi$edu_20plus)),
   homeowner = c(0,1),
   private_renting = c(mean(df_immi$private_renting)),
   age = mean(df_immi$age),
@@ -355,7 +392,7 @@ df_immi <- df_immi %>%
 immi_tab <- lmer(immigSelf ~ social_housing + homeowner + private_renting +  
                    affordability +
                    white_british + 
-                   no_religion + uni +
+                   no_religion + edu_20plus +
                    age + 
                    c1_c2 + d_e + non_uk_born + 
                    gdp_capita + pop_sqm_2021 + foreign_per_1000 + 

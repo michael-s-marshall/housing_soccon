@@ -85,6 +85,8 @@ df$non_voter[df$p_turnout_2019 == 9999] <- NA
 df$immigSelf[df$immigSelf == 9999] <- NA
 df$age_raw <- df$age
 df$age <- scale_this(df$age)
+df$edu_20plus <- ifelse(df$p_education_age == 5, 1, 0)
+df$edu_20plus[is.na(df$p_education_age)] <- NA
 
 df %>% 
   count(tory_2019, p_turnout_2019, p_past_vote_2019)
@@ -96,6 +98,7 @@ df %>% count(income, p_gross_household)
 df %>% count(p_housing, own_outright, own_mortgage, homeowner, social_housing, private_renting)
 df %>% count(non_uk_born, p_country_birth)
 df %>% count(non_voter, p_turnout_2019)
+df %>% count(edu_20plus, p_education_age)
 df %>% count(immigSelf)
 
 # university full, incl. predictions
@@ -271,7 +274,7 @@ df <- df %>%
   select(id, immigSelf, tory_2019, la_code, uni, uni_propensity,
          uni_pred, uni_full, white_british,  no_religion, c1_c2, d_e, 
          own_outright, own_mortgage, social_housing, private_renting, 
-         age, age_raw, non_uk_born, homeowner, 
+         age, age_raw, non_uk_born, homeowner, edu_20plus,
          all_of(level_twos), contains("raw"), region_code, london)
 
 # reordering immigSelf ------------------------------------------------

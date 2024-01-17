@@ -30,7 +30,7 @@ data_files <- c("BES2015_W10_v24.0.dta",
                 "BES2019_W22_v24.0.dta")
 
 file_path <- "panel_data/"
-vars <- c("id", "immigSelf", "redistSelf", "p_edlevel", 
+vars <- c("id", "immigSelf", "redistSelf", "p_edlevel", "p_education_age", 
           "p_ethnicity", "p_religion", "p_socgrade", 
           "p_country_birth", "p_gross_household",
           "p_housing", "age", "oslaua_code","gor","year")
@@ -363,6 +363,19 @@ df$social_housing <- ifelse(
   df$p_housing == 5|df$p_housing == 6, 1, 0
 )
 
+df$edu_20plus <- ifelse(
+  df$p_education_age == 5, 1, 0
+  )
+df$edu_20plus[is.na(df$p_education_age)] <- NA
+
+df %>% count(uni, p_edlevel)
+df %>% count(white, p_ethnicity)
+df %>% count(no_religion, p_religion)
+df %>% count(c1_c2, d_e, p_socgrade)
+df %>% count(p_housing, homeowner, social_housing, private_renting)
+df %>% count(non_uk_born, p_country_birth)
+df %>% count(edu_20plus, p_education_age)
+
 # scaling age
 df$age <- scale_this(df$age)
 
@@ -396,9 +409,9 @@ df$id <- as.factor(df$id)
 
 # producing dataset
 immig_df <- df %>% 
-  select(immigSelf, all_of(scaling_vars), uni, white, no_religion, 
-         c1_c2, d_e, non_uk_born, homeowner, private_renting, 
-         social_housing, year_c, oslaua_code, id) 
+  select(immigSelf, all_of(scaling_vars), uni, edu_20plus, white, 
+         no_religion, c1_c2, d_e, non_uk_born, homeowner, 
+         private_renting, social_housing, year_c, oslaua_code, id) 
 
 names(immig_df)
 

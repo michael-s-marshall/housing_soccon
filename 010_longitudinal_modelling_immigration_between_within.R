@@ -38,7 +38,8 @@ missing_las(immig_df, foreign_per_1000)
 
 # dataset for main model
 immig_df <- immig_df %>% 
-  select(-degree_pct_change, -prices, -prices_mean, -prices_within) %>% 
+  select(-degree_pct_change, -prices, -prices_mean, -prices_within,
+         -uni) %>% 
   na.omit()
 
 nrow(df) - nrow(immig_df)
@@ -48,12 +49,18 @@ immig_df_price <- df %>%
   select(-degree_pct_change, -affordability, 
          -affordability_log, -affordability_log_mean,
          -affordability_mean, -affordability_within,
-         -affordability_log_within) %>% 
+         -affordability_log_within, -uni) %>% 
   na.omit()
 
 # dataset for robustness with degree change
 immig_df_change <- df %>% 
-  select(-prices, -prices_mean, -prices_within) %>% 
+  select(-prices, -prices_mean, -prices_within, -uni) %>% 
+  na.omit()
+
+# dataset for uni model
+immig_df_uni <- df %>% 
+  select(-degree_pct_change, -prices, -prices_mean, -prices_within,
+         -edu_20plus) %>% 
   na.omit()
 
 ## fixed effects ------------------------------------------------------------------
@@ -120,7 +127,7 @@ immi_lv1 <- lmer(immigSelf ~ affordability_mean + affordability_within +
                    under_15_pct_within + under_15_pct_mean +
                    gdp_capita_within + gdp_capita_mean +
                    manuf_pct_within + manuf_pct_mean +
-                   uni + white + no_religion + c1_c2 + 
+                   edu_20plus + white + no_religion + c1_c2 + 
                    d_e + non_uk_born + private_renting +
                    homeowner + social_housing +
                    year_c + degree_pct +
@@ -143,7 +150,7 @@ immi_int <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                    under_15_pct_within + under_15_pct_mean +
                    gdp_capita_within + gdp_capita_mean +
                    manuf_pct_within + manuf_pct_mean +
-                   uni + white + no_religion + c1_c2 + 
+                   edu_20plus + white + no_religion + c1_c2 + 
                    d_e + non_uk_born + # private_renting +
                    #homeowner + social_housing +
                    year_c + degree_pct +
@@ -167,7 +174,7 @@ immi_log <- lmer(immigSelf ~ (social_housing * affordability_log_mean) +
                    under_15_pct_within + under_15_pct_mean +
                    gdp_capita_within + gdp_capita_mean +
                    manuf_pct_within + manuf_pct_mean +
-                   uni + white + no_religion + c1_c2 + 
+                   edu_20plus + white + no_religion + c1_c2 + 
                    d_e + non_uk_born + private_renting +
                    #homeowner + social_housing +
                    year_c + degree_pct +
@@ -186,7 +193,7 @@ immi_price <- lmer(immigSelf ~ (social_housing * prices_mean) +
                      under_15_pct_within + under_15_pct_mean +
                      gdp_capita_within + gdp_capita_mean +
                      manuf_pct_within + manuf_pct_mean +
-                     uni + white + no_religion + c1_c2 +
+                     edu_20plus + white + no_religion + c1_c2 +
                      d_e + non_uk_born + private_renting +
                      year_c + degree_pct +
                      (1|oslaua_code) + (1|id),
@@ -204,10 +211,27 @@ immi_int2 <- lmer(immigSelf ~ (social_housing * affordability_mean) +
                     under_15_pct_within + under_15_pct_mean +
                     gdp_capita_within + gdp_capita_mean +
                     manuf_pct_within + manuf_pct_mean +
-                    uni + white + no_religion + c1_c2 + 
+                    edu_20plus + white + no_religion + c1_c2 + 
                     d_e + non_uk_born + private_renting +
                     year_c + degree_pct + degree_pct_change +
                     (1|oslaua_code) + (1|id),
                   data = immig_df_change, REML = FALSE)
 summary(immi_int2)
 
+# robustness check - uni -------------------------------------------
+
+immi_uni <- lmer(immigSelf ~ (social_housing * affordability_mean) +
+                   (homeowner * affordability_mean) +
+                   affordability_within +
+                   pop_density_within + pop_density_mean +
+                   foreign_per_1000_within + foreign_per_1000_mean +
+                   over_65_pct_within + over_65_pct_mean +
+                   under_15_pct_within + under_15_pct_mean +
+                   gdp_capita_within + gdp_capita_mean +
+                   manuf_pct_within + manuf_pct_mean +
+                   uni + white + no_religion + c1_c2 +
+                   d_e + non_uk_born + private_renting +
+                   year_c + degree_pct + 
+                   (1|oslaua_code) + (1|id),
+                 data = immig_df_uni, REML = FALSE)
+summary(immi_uni)

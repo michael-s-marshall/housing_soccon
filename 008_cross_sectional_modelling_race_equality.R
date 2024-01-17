@@ -69,6 +69,8 @@ df$own_mortgage <- ifelse(df$p_housing == 2, 1, 0)
 df$homeowner <- ifelse(df$own_outright == 1 | df$own_mortgage == 1, 1, 0)
 df$age_raw <- df$age
 df$age <- scale_this(df$age)
+df$edu_20plus <- ifelse(df$p_education_age == 5, 1, 0)
+df$edu_20plus[is.na(df$p_education_age)] <- NA
 
 df %>% count(uni, p_edlevel)
 df %>% count(white_british, p_ethnicity)
@@ -76,6 +78,7 @@ df %>% count(no_religion, p_religion)
 df %>% count(soc_class, c1_c2, d_e, p_socgrade)
 df %>% count(p_housing, own_outright, own_mortgage, homeowner, social_housing, private_renting)
 df %>% count(non_uk_born, p_country_birth)
+df %>% count(edu_20plus, p_education_age)
 
 # making binary DV
 df$equality_too_far <- ifelse(df$blackEquality == 4|df$blackEquality == 5, 1, 0)
@@ -223,14 +226,21 @@ df[level_twos] <- df[level_twos] %>%
 # missing values ---------------------------------------
 
 df_equal <- df %>% 
-  select(la_code, uni, white_british, no_religion,
+  select(la_code, uni, white_british, no_religion, edu_20plus,
          c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, age_raw, non_uk_born, homeowner,
          equality_too_far, all_of(level_twos), contains("raw"))
 
 df_equal %>% map_int(~sum(is.na(.)))
 
-df_equal <- df_equal %>% na.omit()
+df_equal <- df_equal %>% select(-uni) %>% na.omit()
+
+df_equal_uni <- df %>% 
+  select(la_code, uni, white_british, no_religion, 
+         c1_c2, d_e, own_outright, own_mortgage, social_housing,
+         private_renting, age, age_raw, non_uk_born, homeowner,
+         equality_too_far, all_of(level_twos), contains("raw")) %>%
+  na.omit()
 
 nrow(df) - nrow(df_equal)
 
@@ -243,7 +253,7 @@ nrow(df) - nrow(df_equal)
 # multivariate ------------------------------------------------
 
 equal_multi <- glmer(equality_too_far ~ white_british +
-                       no_religion + uni +
+                       no_religion + edu_20plus +
                        social_housing + private_renting +
                        homeowner + age +
                        c1_c2 + d_e + non_uk_born +
@@ -255,7 +265,7 @@ summary(equal_multi)
 # including level 2 predictors  ------------------------------
 
 equal_con <- glmer(equality_too_far ~ white_british +
-                     no_religion + uni +
+                     no_religion + edu_20plus +
                      social_housing + private_renting +
                      homeowner + age +
                      c1_c2 + d_e + non_uk_born +
@@ -279,7 +289,7 @@ df_equal <- df_equal %>%
 equal_int <- glmer(equality_too_far ~ social_housing.affordability +
                      homeowner.affordability +
                      social_housing + homeowner + affordability +
-                     white_british + no_religion + uni +
+                     white_british + no_religion + edu_20plus +
                      private_renting + age +
                      c1_c2 + d_e + non_uk_born +
                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
@@ -289,6 +299,24 @@ equal_int <- glmer(equality_too_far ~ social_housing.affordability +
 summary(equal_int)
 
 anova(equal_con, equal_int)
+
+# with uni var ---------------------------------------------------
+
+df_equal_uni <- df_equal_uni %>% 
+  mutate(social_housing.affordability = social_housing * affordability,
+         homeowner.affordability = homeowner * affordability)
+
+equal_uni <- glmer(equality_too_far ~ social_housing.affordability +
+                     homeowner.affordability +
+                     social_housing + homeowner + affordability +
+                     white_british + no_religion + uni +
+                     private_renting + age +
+                     c1_c2 + d_e + non_uk_born +
+                     gdp_capita + pop_sqm_2021 + foreign_per_1000 +
+                     over_65_pct + under_15_pct + degree_pct +
+                     manuf_pct + (1|la_code),
+                   data = df_equal_uni, family = binomial("logit"))
+summary(equal_uni)
 
 # marginal effects --------------------------------------------------------
 
@@ -351,7 +379,7 @@ saveRDS(equality_coefs, file = "working/markdown_viz/equality_coefs.RDS")
 equal_int2 <- glmer(equality_too_far ~ 
                      social_housing + homeowner +  private_renting + 
                      affordability +
-                     white_british + no_religion + uni +
+                     white_british + no_religion + edu_20plus +
                      age +
                      c1_c2 + d_e + non_uk_born +
                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
