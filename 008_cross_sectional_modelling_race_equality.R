@@ -229,7 +229,8 @@ df_equal <- df %>%
   select(la_code, uni, white_british, no_religion, edu_20plus,
          c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, age_raw, non_uk_born, homeowner,
-         equality_too_far, all_of(level_twos), contains("raw"))
+         equality_too_far, all_of(level_twos), contains("raw")) %>% 
+  rename(LAD = la_code)
 
 df_equal %>% map_int(~sum(is.na(.)))
 
@@ -240,6 +241,7 @@ df_equal_uni <- df %>%
          c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, age_raw, non_uk_born, homeowner,
          equality_too_far, all_of(level_twos), contains("raw")) %>%
+  rename(LAD = la_code) %>% 
   na.omit()
 
 nrow(df) - nrow(df_equal)
@@ -257,7 +259,7 @@ equal_multi <- glmer(equality_too_far ~ white_british +
                        social_housing + private_renting +
                        homeowner + age +
                        c1_c2 + d_e + non_uk_born +
-                       (1|la_code),
+                       (1|LAD),
                      data = df_equal, family = binomial("logit"))
 
 summary(equal_multi)
@@ -273,7 +275,7 @@ equal_con <- glmer(equality_too_far ~ white_british +
                      pop_sqm_2021 + foreign_per_1000 +
                      over_65_pct + under_15_pct +
                      degree_pct + manuf_pct +
-                     (1|la_code),
+                     (1|LAD),
                    data = df_equal, family = binomial("logit"))
 
 summary(equal_con)
@@ -294,7 +296,7 @@ equal_int <- glmer(equality_too_far ~ social_housing.affordability +
                      c1_c2 + d_e + non_uk_born +
                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
                      over_65_pct + under_15_pct + degree_pct +
-                     manuf_pct + (1|la_code),
+                     manuf_pct + (1|LAD),
                    data = df_equal, family = binomial("logit"))
 summary(equal_int)
 
@@ -314,7 +316,7 @@ equal_uni <- glmer(equality_too_far ~ social_housing.affordability +
                      c1_c2 + d_e + non_uk_born +
                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
                      over_65_pct + under_15_pct + degree_pct +
-                     manuf_pct + (1|la_code),
+                     manuf_pct + (1|LAD),
                    data = df_equal_uni, family = binomial("logit"))
 summary(equal_uni)
 
@@ -331,16 +333,16 @@ plot_names <- tibble(
     select(factor) %>% 
     as_vector,
   var_name = c("Affordability", "Age", "Social class: C1-C2", "Social class: D-E",
-               "Graduate %", "Non-UK born population","GDP per capita",
-               "Homeowner","Affordability:Homeowner", "Manufacturing %",
-               "No religion", "Non-UK born", "Over 65 %", "Population density",
-               "Private renter", "Social renter", "Affordability:Social renter",
-               "Under 15 %", "University graduate", "White British"),
+               "Graduate %", "Education age 20+", "Non-UK born population",
+               "GDP per capita", "Homeowner","Affordability:Homeowner", 
+               "Manufacturing %", "No religion", "Non-UK born", "Over 65 %",
+               "Population density", "Private renter", "Social renter",
+               "Affordability:Social renter", "Under 15 %", "White British"),
   grouping = c("Housing", "Individual","Individual", "Individual",
-               "Local", "Local", "Local", "Housing", "Housing", "Local",
+               "Local", "Individual", "Local", "Local", "Housing", "Housing", "Local",
                "Individual", "Individual", "Local", "Local", 
                "Housing", "Housing", "Housing", 
-               "Local", "Individual", "Individual")
+               "Local", "Individual")
 ) %>% 
   mutate(grouping = fct_relevel(as.factor(grouping), 
                                 c("Housing", "Individual",
@@ -386,7 +388,7 @@ equal_int2 <- glmer(equality_too_far ~
                      over_65_pct + under_15_pct + degree_pct +
                      manuf_pct + 
                      social_housing.affordability +
-                     homeowner.affordability + (1|la_code),
+                     homeowner.affordability + (1|LAD),
                    data = df_equal, family = binomial("logit"))
 summary(equal_int2)
 

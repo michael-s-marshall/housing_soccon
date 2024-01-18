@@ -10,7 +10,8 @@ rm(list = ls())
 load("longitudinal_df.RData")
 
 # saving a df for later application of filters prior to robustness checks
-df <- immig_df
+df <- immig_df %>% 
+  rename(LAD = oslaua_code)
 
 # missing observations -------------------------------
 
@@ -40,6 +41,7 @@ missing_las(immig_df, foreign_per_1000)
 immig_df <- immig_df %>% 
   select(-degree_pct_change, -prices, -prices_mean, -prices_within,
          -uni) %>% 
+  rename(LAD = oslaua_code) %>% 
   na.omit()
 
 nrow(df) - nrow(immig_df)
@@ -70,7 +72,7 @@ immi_fe <- felm(immigSelf ~ affordability +
                   over_65_pct + under_15_pct +
                   gdp_capita + 
                   manuf_pct + year_c | 
-                  id + oslaua_code,
+                  id + LAD,
                 data = immig_df)
 summary(immi_fe)
 
@@ -82,7 +84,7 @@ immi_fe2 <- lmer(immigSelf ~ affordability_within +
                    gdp_capita_within + 
                    manuf_pct_within +
                    year_c +
-                   (1|oslaua_code) + (1|id),
+                   (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_fe2)
 
@@ -93,7 +95,7 @@ immi_fe3 <- lmer(immigSelf ~ affordability + affordability_mean +
                    under_15_pct + under_15_pct_mean +
                    gdp_capita + gdp_capita_mean +
                    manuf_pct + manuf_pct_mean +
-                   year_c + (1|oslaua_code) + (1|id),
+                   year_c + (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_fe3)
 
@@ -110,10 +112,12 @@ tibble(
     names_to = "model",
     values_to = "estimate"
   ) %>% 
-  ggplot(aes(x = estimate, y = variable, fill = model)) +
-  geom_col(position = "dodge", colour = "black") +
-  scale_fill_viridis_d() +
-  theme_bw() +
+  ggplot(aes(x = estimate, y = variable, colour = model)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "lightgrey",
+             linewidth = 1.5) +
+  geom_point(position = position_dodgev(height = 0.3), size = 2.5) +
+  scale_colour_brewer(palette = "Dark2") +
+  theme_minimal() +
   theme(legend.position = "top") +
   drop_y_gridlines()
 
@@ -131,7 +135,7 @@ immi_lv1 <- lmer(immigSelf ~ affordability_mean + affordability_within +
                    d_e + non_uk_born + private_renting +
                    homeowner + social_housing +
                    year_c + degree_pct +
-                   (1|oslaua_code) + (1|id),
+                   (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_lv1)
 
@@ -154,7 +158,7 @@ immi_int <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                    d_e + non_uk_born + # private_renting +
                    #homeowner + social_housing +
                    year_c + degree_pct +
-                   (1|oslaua_code) + (1|id),
+                   (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_int)
 
@@ -178,7 +182,7 @@ immi_log <- lmer(immigSelf ~ (social_housing * affordability_log_mean) +
                    d_e + non_uk_born + private_renting +
                    #homeowner + social_housing +
                    year_c + degree_pct +
-                   (1|oslaua_code) + (1|id),
+                   (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_log)
 
@@ -196,7 +200,7 @@ immi_price <- lmer(immigSelf ~ (social_housing * prices_mean) +
                      edu_20plus + white + no_religion + c1_c2 +
                      d_e + non_uk_born + private_renting +
                      year_c + degree_pct +
-                     (1|oslaua_code) + (1|id),
+                     (1|LAD) + (1|id),
                    data = immig_df_price, REML = FALSE)
 summary(immi_price)
 
@@ -214,7 +218,7 @@ immi_int2 <- lmer(immigSelf ~ (social_housing * affordability_mean) +
                     edu_20plus + white + no_religion + c1_c2 + 
                     d_e + non_uk_born + private_renting +
                     year_c + degree_pct + degree_pct_change +
-                    (1|oslaua_code) + (1|id),
+                    (1|LAD) + (1|id),
                   data = immig_df_change, REML = FALSE)
 summary(immi_int2)
 
@@ -232,6 +236,6 @@ immi_uni <- lmer(immigSelf ~ (social_housing * affordability_mean) +
                    uni + white + no_religion + c1_c2 +
                    d_e + non_uk_born + private_renting +
                    year_c + degree_pct + 
-                   (1|oslaua_code) + (1|id),
+                   (1|LAD) + (1|id),
                  data = immig_df_uni, REML = FALSE)
 summary(immi_uni)
