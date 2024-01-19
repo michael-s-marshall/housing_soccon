@@ -91,23 +91,38 @@ df %>%
 
 # affordability data ---------------------------------------------------------
 
+# affordability ratio
 afford <- read_csv("affordability_ratio_las.csv",
                    na = c(":", "NA"))
 
 afford <- afford %>% 
   rename(la_code = `Local authority code`,
          affordability = `2020`) %>% 
-  select(la_code, affordability)
+  select(la_code, affordability) %>% 
+  mutate(affordability_log = log(affordability))
+
+# prices
+prices <- read_csv("median_house_prices.csv")
+
+names(prices) <- names(prices) %>% 
+  str_remove_all("Year ending Sep") %>% 
+  str_squish()
+
+prices <- prices %>% 
+  rename(la_code = `Local authority code`) %>% 
+  mutate(prices = log(`2020`)) %>% 
+  select(la_code, prices)
 
 # merging
 df <- df %>% 
-  left_join(afford, by = "la_code")
+  left_join(afford, by = "la_code") %>% 
+  left_join(prices, by = "la_code")
 
 df %>% 
   filter(is.na(affordability)) %>% 
   select(la_code) %>% 
   unique() %>% 
-  as_vector() # missing = Scotland, City of London, Isles of Scilly
+  as_vector() # missing = Scotland
 
 # gdp data --------------------------------------------------------------------
 
@@ -180,7 +195,7 @@ df <- df %>%
 
 # manufacturing percentage ------------------------------------------------
 
-manuf <- read_csv("2021_industry_employment.csv")
+manuf <- read_csv("2020_industry_employment.csv")
 
 indus_clean <- function(df){
   out <- df %>% 
@@ -208,6 +223,18 @@ manuf <- indus_clean(manuf) %>%
 df <- df %>% 
   left_join(manuf, by = "la_code")
 
+# region --------------------------------------------------------------------
+
+region <- read_csv("lasregionew2021lookup.csv")
+
+region <- region %>% 
+  rename(la_code = `LA code`,
+         region_code = `Region code`) %>% 
+  select(la_code, region_code)
+
+df <- df %>% 
+  left_join(region, by = "la_code")
+
 # scaling variables --------------------------------------------------------
 
 # renaming originals
@@ -230,7 +257,8 @@ df_immi <- df %>%
   select(la_code, uni, white_british, no_religion, edu_20plus,
          c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, age_raw, non_uk_born, homeowner,
-         immig_burden, all_of(level_twos), contains("raw")) %>% 
+         immig_burden, all_of(level_twos), contains("raw"), 
+         region_code) %>% 
   rename(LAD = la_code)
 
 df_immi %>% map_int(~sum(is.na(.)))
@@ -241,7 +269,8 @@ df_immi_uni <- df %>%
   select(la_code, uni, white_british, no_religion, 
          c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, age_raw, non_uk_born, homeowner,
-         immig_burden, all_of(level_twos), contains("raw")) %>%
+         immig_burden, all_of(level_twos), contains("raw"),
+         region_code) %>%
   rename(LAD = la_code) %>% 
   na.omit()
 
@@ -289,43 +318,32 @@ df_immi <- df_immi %>%
   mutate(social_housing.affordability = social_housing * affordability,
          homeowner.affordability = homeowner * affordability)
 
-immig_int <- glmer(immig_burden ~ social_housing.affordability +
+immig_int <- glmer(immig_burden ~ social_housing + homeowner + private_renting +  
+                     affordability +
+                     white_british + 
+                     no_religion + edu_20plus +
+                     age + 
+                     c1_c2 + d_e + non_uk_born + 
+                     gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
+                     over_65_pct + under_15_pct + 
+                     degree_pct + manuf_pct +
+                     social_housing.affordability + 
                      homeowner.affordability +
-                     social_housing + homeowner + affordability +
-                     white_british + no_religion + edu_20plus +
-                     private_renting + age +
-                     c1_c2 + d_e + non_uk_born +
-                     gdp_capita + pop_sqm_2021 + foreign_per_1000 +
-                     over_65_pct + under_15_pct + degree_pct +
-                     manuf_pct + (1|LAD),
+                     (1|LAD),
                    data = df_immi, family = binomial("logit"))
 summary(immig_int)
 
 anova(immig_con, immig_int)
 
-# with uni var ---------------------------------------------------
-
-df_immi_uni <- df_immi_uni %>% 
-  mutate(social_housing.affordability = social_housing * affordability,
-         homeowner.affordability = homeowner * affordability)
-
-immig_uni <- glmer(immig_burden ~ social_housing.affordability +
-                     homeowner.affordability +
-                     social_housing + homeowner + affordability +
-                     white_british + no_religion + uni +
-                     private_renting + age +
-                     c1_c2 + d_e + non_uk_born +
-                     gdp_capita + pop_sqm_2021 + foreign_per_1000 +
-                     over_65_pct + under_15_pct + degree_pct +
-                     manuf_pct + (1|LAD),
-                   data = df_immi_uni, family = binomial("logit"))
-summary(immig_uni)
+saveRDS(immig_int, file = "working/markdown_data/immig_burden_int.RDS")
 
 # marginal effects --------------------------------------------------------
 
 marginals2 <- margins(immig_int, type = "response")
 
 saveRDS(marginals2, file = "working/markdown_data/marginals2.RDS")
+
+summary(marginals2)
 
 plot_names <- tibble(
   term = marginals2 %>%
@@ -377,23 +395,68 @@ immi_burden_coefs
 
 saveRDS(immi_burden_coefs, file = "working/markdown_viz/immi_burden_coefs.RDS")
 
-# for table ---------------------------------------
+# with uni var ---------------------------------------------------
 
-immig_int2 <- glmer(immig_burden ~ 
-                      social_housing + homeowner +  private_renting + 
-                      affordability +
-                      white_british + no_religion + edu_20plus +
-                      age +
-                      c1_c2 + d_e + non_uk_born +
-                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
-                      over_65_pct + under_15_pct + degree_pct +
-                      manuf_pct + 
-                      social_housing.affordability +
-                      homeowner.affordability + (1|LAD),
-                    data = df_immi, family = binomial("logit"))
-summary(immig_int2)
+df_immi_uni <- df_immi_uni %>% 
+  mutate(social_housing.affordability = social_housing * affordability,
+         homeowner.affordability = homeowner * affordability)
 
-saveRDS(immig_int2, file = "working/markdown_data/immig_int.RDS")
+immig_uni <- glmer(immig_burden ~ social_housing.affordability +
+                     homeowner.affordability +
+                     social_housing + homeowner + affordability +
+                     white_british + no_religion + uni +
+                     private_renting + age +
+                     c1_c2 + d_e + non_uk_born +
+                     gdp_capita + pop_sqm_2021 + foreign_per_1000 +
+                     over_65_pct + under_15_pct + degree_pct +
+                     manuf_pct + (1|LAD),
+                   data = df_immi_uni, family = binomial("logit"))
+summary(immig_uni)
+
+# log affordability ---------------------------------------
+
+immig_log <- glmer(immig_burden ~ (social_housing * affordability_log) + 
+                     (homeowner * affordability_log) + 
+                     private_renting +  white_british + 
+                     no_religion + edu_20plus +
+                     age + c1_c2 + d_e + non_uk_born + 
+                     gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
+                     over_65_pct + under_15_pct + 
+                     degree_pct + manuf_pct +
+                     (1|LAD),
+                   data = df_immi, family = binomial("logit"))
+summary(immig_log)
+
+# prices --------------------------------------------------
+
+immig_pri <- glmer(immig_burden ~ (social_housing * prices) + 
+                     (homeowner * prices) + 
+                     private_renting +  white_british + 
+                     no_religion + edu_20plus +
+                     age + c1_c2 + d_e + non_uk_born + 
+                     gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
+                     over_65_pct + under_15_pct + 
+                     degree_pct + manuf_pct +
+                     (1|LAD),
+                   data = df_immi, family = binomial("logit"))
+summary(immig_pri)
+
+# region dummies ------------------------------------------
+
+immig_reg <- glmer(immig_burden ~ social_housing + homeowner + private_renting +  
+                     affordability +
+                     white_british + 
+                     no_religion + edu_20plus +
+                     age + 
+                     c1_c2 + d_e + non_uk_born + 
+                     gdp_capita + pop_sqm_2021 + foreign_per_1000 + 
+                     over_65_pct + under_15_pct + 
+                     degree_pct + manuf_pct +
+                     social_housing.affordability + 
+                     homeowner.affordability + region_code +
+                     (1|LAD),
+                   data = df_immi, family = binomial("logit"))
+summary(immig_reg)
 
 # not incl. homeowner interaction ------------------------------------
 

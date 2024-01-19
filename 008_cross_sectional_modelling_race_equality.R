@@ -1,4 +1,4 @@
-pacman::p_load(tidyverse, lavaan, jtools, lme4, lmerTest, margins)
+pacman::p_load(haven, tidyverse, lavaan, jtools, lme4, lmerTest, margins)
 
 rm(list = ls())
 

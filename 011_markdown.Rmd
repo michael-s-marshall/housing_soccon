@@ -25,8 +25,8 @@ Key findings:
 
 * The association between affordability and opposition to immigration is conditional on tenure
 * A positive interaction exists between social renting and unaffordability  
-* A negative interaction exists between homeownership and unaffordability  
-* Findings robust to log transformation of affordability, using log of house prices as independent variable, and supplementing data with model predictions for whether respondents attended university  
+* A negative interaction exists between homeownership and unaffordability   
+* Findings robust to log transformation of affordability, using log of house prices as independent variable, and inclusion of regional dummies  
 
 ```{r, include=TRUE}
 # plot
@@ -37,6 +37,25 @@ The figure below displays the interaction terms. It also shows that once control
 
 ```{r, include = TRUE}
 readRDS("working/markdown_viz/int_plot.RDS")
+```
+
+## Cross-sectional immigrants a burden on welfare modelling
+
+Dependent variable and model:  
+
+* Binary indicator for whether respondents 'agree' or 'strongly agree' that immigrants are a burden on the welfare state    
+* Nested multilevel logit model with random intercepts for local authorities, with cross-level interactions between housing affordability and a) social renting and b) homeownership  
+
+Key findings:  
+
+* Positive association with social renting and homeownership  
+* Positive interaction between social renting and affordability i.e. social renters in less affordable areas more likely to see immigrants as a welfare state burden  
+* Interaction between social renting and affordability robust to using log of affordability, log of house prices, and inclusion of regional dummies  
+* No interaction with homeownership  
+
+```{r, include=TRUE}
+# plot
+readRDS("working/markdown_viz/immi_burden_coefs.RDS")
 ```
 
 ## Cross-sectional racial equality modelling
@@ -55,6 +74,26 @@ Key findings:
 readRDS("working/markdown_viz/equality_coefs.RDS")
 ```
 
+## Table of cross-sectional modelling results
+
+```{r, include=TRUE, results = 'asis'}
+immi_int <- readRDS("working/markdown_data/immi_tab.RDS")
+equal_int <- readRDS("working/markdown_data/equal_int.RDS")
+immi_bur <- readRDS("working/markdown_data/immig_burden_int.RDS")
+
+tab_model(immi_int, immi_bur, equal_int, p.style = "stars", show.aic = T, 
+          terms = c("social_housing", "homeowner", 
+                    "private_renting", "affordability", 
+                    "social_housing.affordability", 
+                    "homeowner.affordability"),
+          pred.labels = c("Social renter", "Homeowner", "Private renter",
+                          "Affordability",
+                          "Social renter * Affordability", 
+                          "Homeowner * Affordability"),
+          dv.labels = c("Anti-immigration", "Immigrants a welfare burden",  "Anti-racial equality"))
+```
+
+
 ## Longitudinal anti-immigration modelling
 
 Data and modelling strategy:
@@ -70,26 +109,19 @@ Key findings:
 * Findings robust to log scale of affordability, use of log house prices as independent variable, inclusion of change in the percentage of people degree educated between censuses as a control variable, and modelling of within local authority change via a fixed effects model  
 
 ```{r, include=TRUE, results = 'asis'}
-immi_int <- readRDS("working/markdown_data/immi_tab.RDS")
-equal_int <- readRDS("working/markdown_data/equal_int.RDS")
 immi_long <- readRDS("working/markdown_data/immi_int_long.RDS")
 
-tab_model(immi_int,  equal_int, immi_long, p.style = "stars", show.aic = T, 
+tab_model(immi_long, p.style = "stars", show.aic = T, 
           terms = c("social_housing", "homeowner", 
-                    "private_renting", "affordability", 
-                    "social_housing.affordability", 
-                    "homeowner.affordability", "affordability_mean",
+                    "private_renting", "affordability_mean",
                     "social_housing.affordability_mean",
                     "homeowner.affordability_mean",
                     "affordability_within"),
           pred.labels = c("Social renter", "Homeowner", "Private renter",
-                          "Affordability",
-                          "Social renter * Affordability", 
-                          "Homeowner * Affordability",
                           "Affordability between",
                           "Social renter * Affordability between",
                           "Homeowner * Affordability between",
                           "Affordability within"),
-          dv.labels = c("Anti-immigration", "Anti-racial equality", "Anti-immigration\n(longitudinal)"))
+          dv.labels = c("Anti-immigration (longitudinal)"))
 ```
 
