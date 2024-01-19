@@ -19,7 +19,7 @@ Dependent variable and model:
 
 * Opposition to immigration measured on an 11-point scale from 0 (should allow many more immigrants) to 10 (should allow far fewer immigrants)  
 * Nested multilevel linear model with random intercepts for local authorities, with cross-level interactions between housing affordability and a) social renting and b) homeownership  
-* Affordability measured via the ratio of median house prices to median earnings in a local authority; as such, a higher number indicates more unaffordable housing  
+* Affordability measured via the ratio of median house prices to median earnings in a local authority; as such, a higher number indicates less affordable housing  
 
 Key findings:  
 
@@ -62,7 +62,7 @@ readRDS("working/markdown_viz/immi_burden_coefs.RDS")
 
 Dependent variable and model:  
 
-* Opposition to racial equality measured as a binary indicator (1 = racial equality has "gone too far" or "gone too much far")  
+* Opposition to racial equality measured as a binary indicator (1 = racial equality has "gone too far" or "gone much too far")  
 * Nested multilevel logit model with random intercepts for local authorities, with cross-level interactions between housing affordability and a) social renting and b) homeownership  
 
 Key findings:  
