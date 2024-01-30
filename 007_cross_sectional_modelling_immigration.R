@@ -68,7 +68,7 @@ logLik(immi_lmer)
 
 # multivariate ------------------------------------------------
 
-immi_multi <- lmer(immigSelf ~ white_british + 
+immi_multi <- lmer(immigSelf ~ male + white_british + 
                      no_religion + edu_20plus +
                      social_housing + private_renting + 
                      homeowner + age + 
@@ -80,7 +80,7 @@ summary(immi_multi)
 
 # including level 2 predictors  ------------------------------
 
-immi_con <- lmer(immigSelf ~ white_british + 
+immi_con <- lmer(immigSelf ~ male + white_british + 
                    no_religion + edu_20plus +
                    social_housing + private_renting + 
                    homeowner + age + 
@@ -99,7 +99,7 @@ anova(immi_multi, immi_con)
 
 immi_int <- lmer(immigSelf ~ (social_housing * affordability) +
                    (homeowner * affordability) +
-                   white_british + 
+                   male + white_british + 
                    no_religion + edu_20plus +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
@@ -118,14 +118,14 @@ saveRDS(immi_int, file = "working/markdown_data/immi_int.RDS")
 
 plot_names <- tibble(
   term = names(fixef(immi_int))[-1],
-  var_name = c("Social renter", "Affordability", "Homeowner",
+  var_name = c("Social renter", "Affordability", "Homeowner", "Male",
                "White British", "No religion", "Education age 20+",
                "Private renter", "Age", "Social class: C1-C2",
                "Social class: D-E", "Non-UK born", "GDP per capita",
                "Population density", "Non-UK born population", "Over 65 %", "Under 15 %",
                "Graduate %", "Manufacturing %", "Affordability:Social renter",
                "Affordability:Homeowner"),
-  grouping = c("Housing", "Housing", "Housing",
+  grouping = c("Housing", "Housing", "Housing", "Individual",
                "Individual","Individual", "Individual",
                "Housing", "Individual", "Individual", 
                "Individual", "Individual", "Local", 
@@ -156,7 +156,7 @@ df_immi_preds <- df_immi_preds %>% na.omit() %>%
 
 immi_int_preds <- lmer(immigSelf ~ (social_housing * affordability) +
                          (homeowner * affordability) +
-                         white_british +
+                         male + white_british +
                          no_religion + uni_full +
                          private_renting + age +
                          c1_c2 + d_e + non_uk_born +
@@ -173,7 +173,7 @@ saveRDS(immi_int_preds, file = "working/markdown_data/immi_int_preds.RDS")
 
 immi_log <- lmer(immigSelf ~ (social_housing * affordability_log) +
                    (homeowner * affordability_log) +
-                   white_british + 
+                   male + white_british + 
                    no_religion + edu_20plus +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
@@ -203,7 +203,7 @@ df_immi_price <- df_immi_price %>% na.omit()
 
 immi_int_price <- lmer(immigSelf ~ (social_housing * prices) +
                          (homeowner * prices) +
-                         white_british +
+                         male + white_british +
                          no_religion + edu_20plus +
                          private_renting + age +
                          c1_c2 + d_e + non_uk_born +
@@ -220,7 +220,7 @@ saveRDS(immi_int_price, file = "working/markdown_data/immi_int_price.RDS")
 
 immi_reg <- lmer(immigSelf ~ (social_housing * affordability) +
                    (homeowner * affordability) +
-                   white_british + 
+                   male + white_british + 
                    no_religion + edu_20plus +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
@@ -264,7 +264,7 @@ df_uni <- df_uni %>% select(-edu_20plus) %>% na.omit()
 
 immi_uni <- lmer(immigSelf ~ (social_housing * affordability) +
                    (homeowner * affordability) +
-                   white_british + 
+                   male + white_british + 
                    no_religion + uni +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
@@ -304,7 +304,7 @@ df_immi <- df_immi %>%
 immi_viz <- lmer(immigSelf ~ social_housing.affordability +
                    homeowner.affordability +
                    social_housing + homeowner + affordability_raw +
-                   white_british + 
+                   male + white_british + 
                    no_religion + edu_20plus +
                    private_renting + age + 
                    c1_c2 + d_e + non_uk_born + 
@@ -319,6 +319,7 @@ x_scale <- seq(min(df_immi$affordability_raw),
                (max(df_immi$affordability_raw) - min(df_immi$affordability_raw))/5)
 
 immi_dummy <- expand.grid(
+  male = c(mean(df_immi$male)),
   white_british = c(mean(df_immi$white_british)),
   no_religion = c(mean(df_immi$no_religion)),
   edu_20plus = c(mean(df_immi$edu_20plus)),
@@ -408,7 +409,7 @@ df_immi <- df_immi %>%
 
 immi_tab <- lmer(immigSelf ~ social_housing + homeowner + private_renting +  
                    affordability +
-                   white_british + 
+                   male + white_british + 
                    no_religion + edu_20plus +
                    age + 
                    c1_c2 + d_e + non_uk_born + 

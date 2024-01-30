@@ -33,7 +33,7 @@ file_path <- "panel_data/"
 vars <- c("id", "immigSelf", "redistSelf", "p_edlevel", "p_education_age", 
           "p_ethnicity", "p_religion", "p_socgrade", 
           "p_country_birth", "p_gross_household",
-          "p_housing", "age", "oslaua_code","gor","year")
+          "p_housing", "age", "gender", "oslaua_code","gor","year")
 
 w10 <- read_dta(file = str_c(file_path, data_files[1]))
 w10$year <- wave_year[1]
@@ -318,6 +318,8 @@ df$uni <- ifelse(
   df$p_edlevel == 4|df$p_edlevel == 5, 1, 0
 )
 
+df$male <- ifelse(df$gender == 1, 1, 0)
+
 df$white <- ifelse(
   df$p_ethnicity == 1|df$p_ethnicity == 2, 1, 0
 )
@@ -368,6 +370,7 @@ df$edu_20plus <- ifelse(
   )
 df$edu_20plus[is.na(df$p_education_age)] <- NA
 
+df %>% count(male, gender)
 df %>% count(uni, p_edlevel)
 df %>% count(white, p_ethnicity)
 df %>% count(no_religion, p_religion)
@@ -409,7 +412,7 @@ df$id <- as.factor(df$id)
 
 # producing dataset
 immig_df <- df %>% 
-  select(immigSelf, all_of(scaling_vars), uni, edu_20plus, white, 
+  select(immigSelf, all_of(scaling_vars), male, uni, edu_20plus, white, 
          no_religion, c1_c2, d_e, non_uk_born, homeowner, 
          private_renting, social_housing, year_c, oslaua_code, id) 
 

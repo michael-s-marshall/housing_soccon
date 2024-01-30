@@ -115,7 +115,7 @@ tibble(
   ggplot(aes(x = estimate, y = variable, colour = model)) +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "lightgrey",
              linewidth = 1.5) +
-  geom_point(position = position_dodgev(height = 0.3), size = 2.5) +
+  geom_point(position = ggstance::position_dodgev(height = 0.3), size = 2.5) +
   scale_colour_brewer(palette = "Dark2") +
   theme_minimal() +
   theme(legend.position = "top") +
@@ -131,7 +131,7 @@ immi_lv1 <- lmer(immigSelf ~ affordability_mean + affordability_within +
                    under_15_pct_within + under_15_pct_mean +
                    gdp_capita_within + gdp_capita_mean +
                    manuf_pct_within + manuf_pct_mean +
-                   edu_20plus + white + no_religion + c1_c2 + 
+                   edu_20plus + male + white + no_religion + c1_c2 + 
                    d_e + non_uk_born + private_renting +
                    homeowner + social_housing +
                    year_c + degree_pct +
@@ -154,7 +154,7 @@ immi_int <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                    under_15_pct_within + under_15_pct_mean +
                    gdp_capita_within + gdp_capita_mean +
                    manuf_pct_within + manuf_pct_mean +
-                   edu_20plus + white + no_religion + c1_c2 + 
+                   edu_20plus + male + white + no_religion + c1_c2 + 
                    d_e + non_uk_born + # private_renting +
                    #homeowner + social_housing +
                    year_c + degree_pct +
@@ -178,7 +178,7 @@ immi_log <- lmer(immigSelf ~ (social_housing * affordability_log_mean) +
                    under_15_pct_within + under_15_pct_mean +
                    gdp_capita_within + gdp_capita_mean +
                    manuf_pct_within + manuf_pct_mean +
-                   edu_20plus + white + no_religion + c1_c2 + 
+                   edu_20plus + male + white + no_religion + c1_c2 + 
                    d_e + non_uk_born + private_renting +
                    #homeowner + social_housing +
                    year_c + degree_pct +
@@ -197,7 +197,7 @@ immi_price <- lmer(immigSelf ~ (social_housing * prices_mean) +
                      under_15_pct_within + under_15_pct_mean +
                      gdp_capita_within + gdp_capita_mean +
                      manuf_pct_within + manuf_pct_mean +
-                     edu_20plus + white + no_religion + c1_c2 +
+                     edu_20plus + male + white + no_religion + c1_c2 +
                      d_e + non_uk_born + private_renting +
                      year_c + degree_pct +
                      (1|LAD) + (1|id),
@@ -215,7 +215,7 @@ immi_int2 <- lmer(immigSelf ~ (social_housing * affordability_mean) +
                     under_15_pct_within + under_15_pct_mean +
                     gdp_capita_within + gdp_capita_mean +
                     manuf_pct_within + manuf_pct_mean +
-                    edu_20plus + white + no_religion + c1_c2 + 
+                    edu_20plus + male + white + no_religion + c1_c2 + 
                     d_e + non_uk_born + private_renting +
                     year_c + degree_pct + degree_pct_change +
                     (1|LAD) + (1|id),
@@ -233,7 +233,7 @@ immi_uni <- lmer(immigSelf ~ (social_housing * affordability_mean) +
                    under_15_pct_within + under_15_pct_mean +
                    gdp_capita_within + gdp_capita_mean +
                    manuf_pct_within + manuf_pct_mean +
-                   uni + white + no_religion + c1_c2 +
+                   uni + male + white + no_religion + c1_c2 +
                    d_e + non_uk_born + private_renting +
                    year_c + degree_pct + 
                    (1|LAD) + (1|id),

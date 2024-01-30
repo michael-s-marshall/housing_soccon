@@ -67,6 +67,7 @@ df <- df %>%
   ) %>% 
   rename(la_code = oslaua_code)
 
+df$male <- ifelse(df$gender == 1, 1, 0)
 df$soc_class[df$soc_class == "Other"] <- NA
 df$c1_c2 <- ifelse(df$soc_class == "C1-C2", 1, 0)
 df$d_e <- ifelse(df$soc_class == "D-E", 1, 0)
@@ -88,6 +89,7 @@ df$age <- scale_this(df$age)
 df$edu_20plus <- ifelse(df$p_education_age == 5, 1, 0)
 df$edu_20plus[is.na(df$p_education_age)] <- NA
 
+df %>% count(male, gender)
 df %>% 
   count(tory_2019, p_turnout_2019, p_past_vote_2019)
 df %>% count(uni, p_edlevel)
@@ -271,7 +273,7 @@ df[level_twos] <- df[level_twos] %>%
 # selecting variables --------------------------------------------------
 
 df <- df %>% 
-  select(id, immigSelf, tory_2019, la_code, uni, uni_propensity,
+  select(id, immigSelf, tory_2019, la_code, male, uni, uni_propensity,
          uni_pred, uni_full, white_british,  no_religion, c1_c2, d_e, 
          own_outright, own_mortgage, social_housing, private_renting, 
          age, age_raw, non_uk_born, homeowner, edu_20plus,

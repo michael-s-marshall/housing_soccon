@@ -59,6 +59,7 @@ df <- df %>%
   ) %>% 
   rename(la_code = oslaua_code)
 
+df$male <- ifelse(df$gender == 1, 1, 0)
 df$soc_class[df$soc_class == "Other"] <- NA
 df$c1_c2 <- ifelse(df$soc_class == "C1-C2", 1, 0)
 df$d_e <- ifelse(df$soc_class == "D-E", 1, 0)
@@ -72,6 +73,7 @@ df$age <- scale_this(df$age)
 df$edu_20plus <- ifelse(df$p_education_age == 5, 1, 0)
 df$edu_20plus[is.na(df$p_education_age)] <- NA
 
+df %>% count(male, gender)
 df %>% count(uni, p_edlevel)
 df %>% count(white_british, p_ethnicity)
 df %>% count(no_religion, p_religion)
@@ -226,7 +228,7 @@ df[level_twos] <- df[level_twos] %>%
 # missing values ---------------------------------------
 
 df_equal <- df %>% 
-  select(la_code, uni, white_british, no_religion, edu_20plus,
+  select(la_code, uni, male, white_british, no_religion, edu_20plus,
          c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, age_raw, non_uk_born, homeowner,
          equality_too_far, all_of(level_twos), contains("raw")) %>% 
@@ -237,7 +239,7 @@ df_equal %>% map_int(~sum(is.na(.)))
 df_equal <- df_equal %>% select(-uni) %>% na.omit()
 
 df_equal_uni <- df %>% 
-  select(la_code, uni, white_british, no_religion, 
+  select(la_code, uni, male, white_british, no_religion, 
          c1_c2, d_e, own_outright, own_mortgage, social_housing,
          private_renting, age, age_raw, non_uk_born, homeowner,
          equality_too_far, all_of(level_twos), contains("raw")) %>%
@@ -254,7 +256,7 @@ nrow(df) - nrow(df_equal)
 
 # multivariate ------------------------------------------------
 
-equal_multi <- glmer(equality_too_far ~ white_british +
+equal_multi <- glmer(equality_too_far ~ male + white_british +
                        no_religion + edu_20plus +
                        social_housing + private_renting +
                        homeowner + age +
@@ -266,7 +268,7 @@ summary(equal_multi)
 
 # including level 2 predictors  ------------------------------
 
-equal_con <- glmer(equality_too_far ~ white_british +
+equal_con <- glmer(equality_too_far ~ male + white_british +
                      no_religion + edu_20plus +
                      social_housing + private_renting +
                      homeowner + age +
@@ -291,7 +293,7 @@ df_equal <- df_equal %>%
 equal_int <- glmer(equality_too_far ~ social_housing.affordability +
                      homeowner.affordability +
                      social_housing + homeowner + affordability +
-                     white_british + no_religion + edu_20plus +
+                     male + white_british + no_religion + edu_20plus +
                      private_renting + age +
                      c1_c2 + d_e + non_uk_born +
                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
@@ -311,7 +313,7 @@ df_equal_uni <- df_equal_uni %>%
 equal_uni <- glmer(equality_too_far ~ social_housing.affordability +
                      homeowner.affordability +
                      social_housing + homeowner + affordability +
-                     white_british + no_religion + uni +
+                     male + white_british + no_religion + uni +
                      private_renting + age +
                      c1_c2 + d_e + non_uk_born +
                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
@@ -334,14 +336,14 @@ plot_names <- tibble(
     as_vector,
   var_name = c("Affordability", "Age", "Social class: C1-C2", "Social class: D-E",
                "Graduate %", "Education age 20+", "Non-UK born population",
-               "GDP per capita", "Homeowner","Affordability:Homeowner", 
+               "GDP per capita", "Homeowner","Affordability:Homeowner", "Male", 
                "Manufacturing %", "No religion", "Non-UK born", "Over 65 %",
                "Population density", "Private renter", "Social renter",
                "Affordability:Social renter", "Under 15 %", "White British"),
   grouping = c("Housing", "Individual","Individual", "Individual",
-               "Local", "Individual", "Local", "Local", "Housing", "Housing", "Local",
-               "Individual", "Individual", "Local", "Local", 
-               "Housing", "Housing", "Housing", 
+               "Local", "Individual", "Local", "Local", "Housing", "Housing",
+               "Individual", "Local", "Individual", "Individual", 
+               "Local", "Local", "Housing", "Housing", "Housing", 
                "Local", "Individual")
 ) %>% 
   mutate(grouping = fct_relevel(as.factor(grouping), 
@@ -381,7 +383,7 @@ saveRDS(equality_coefs, file = "working/markdown_viz/equality_coefs.RDS")
 equal_int2 <- glmer(equality_too_far ~ 
                      social_housing + homeowner +  private_renting + 
                      affordability +
-                     white_british + no_religion + edu_20plus +
+                     male + white_british + no_religion + edu_20plus +
                      age +
                      c1_c2 + d_e + non_uk_born +
                      gdp_capita + pop_sqm_2021 + foreign_per_1000 +
