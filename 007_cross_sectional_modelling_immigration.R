@@ -43,6 +43,11 @@ missing_las(df_immi, degree_pct)
 # missing foreign_per_1000 is Scotland and City of London
 missing_las(df_immi, foreign_per_1000)
 
+# missing housing costs measures is Scotland
+missing_las(df_immi, cost_ratio)
+missing_las(df_immi, price_ratio)
+missing_las(df_immi, hcli)
+
 # removing NAs
 df_eng_wales <- df_immi %>% drop_na(c(affordability, degree_pct, foreign_per_1000))
 
@@ -424,3 +429,72 @@ summary(immi_tab)
 summary(immi_int)
 
 saveRDS(immi_tab, file = "working/markdown_data/immi_tab.RDS")
+
+# models using housing cost measures ------------------------------------------
+
+# adding regional degree pct
+degrees <- read_csv("regional_degree_pct.csv")
+
+degrees <- degrees %>% 
+  rename(region_code = `Area Codes`,
+         degree_pct_region = `Level 4+ (%)`) %>%
+  select(region_code, degree_pct_region)
+
+df_immi <- df_immi %>% 
+  left_join(degrees, by = "region_code")
+
+# sh * costs, owners * affordability
+immi_costs <- lmer(immigSelf ~ (social_housing * cost_ratio) +
+                     degree_pct_region +
+                     male + white_british +
+                     no_religion + edu_20plus +
+                     private_renting + age +
+                     c1_c2 + d_e + non_uk_born +
+                     (1|region_code) + (1|region_code:LAD),
+                   data = df_immi, REML = FALSE)
+
+summary(immi_costs)
+
+immi_hcli <- lmer(immigSelf ~ (social_housing * hcli) +
+                    degree_pct_region +
+                    male + white_british + 
+                    no_religion + edu_20plus +
+                    private_renting + age + 
+                    c1_c2 + d_e + non_uk_born + 
+                    (1|region_code) + (1|region_code:LAD),
+                  data = df_immi, REML = FALSE)
+
+summary(immi_hcli)
+
+immi_price <- lmer(immigSelf ~ (social_housing * price_ratio) +
+                     degree_pct_region +
+                     male + white_british + 
+                     no_religion + edu_20plus +
+                     private_renting + age + 
+                     c1_c2 + d_e + non_uk_born + 
+                     (1|region_code) + (1|region_code:LAD),
+                   data = df_immi, REML = FALSE)
+
+summary(immi_price)
+
+AIC(immi_csts, immi_hcli, immi_price)
+
+tibble(
+  `Cost ratio` = fixef(immi_costs)[c("social_housing","cost_ratio","social_housing:cost_ratio")],
+  `30:40` = fixef(immi_hcli)[c("social_housing","hcli","social_housing:hcli")],
+  `Price earnings ratio` = fixef(immi_price)[c("social_housing","price_ratio","social_housing:price_ratio")],
+  variable = c("Social housing", "Affordability", "Interaction term")
+) %>% 
+  pivot_longer(
+    cols = `Cost ratio`:`Price earnings ratio`,
+    names_to = "Affordability measure",
+    values_to = "Estimate"
+  ) %>% 
+  ggplot(aes(x = Estimate, y = variable, fill = `Affordability measure`)) +
+  geom_col(position = "dodge", colour = "black") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  drop_y_gridlines() +
+  labs(y = NULL) +
+  theme(legend.position = "top")
+

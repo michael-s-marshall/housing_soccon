@@ -254,6 +254,46 @@ df <- df %>%
   left_join(region, by = "la_code") %>% 
   mutate(london = ifelse(region_code == "E12000007", 1, 0))
 
+rm(region)
+
+# hosing cost measures ---------------------------------------------------------------
+
+hcli <- readRDS("hcli_proportions.RDS")
+hcli <- hcli %>% 
+  mutate(region_name = str_squish(
+    str_to_lower(str_remove(region_name, "of England")))) %>% 
+  select(region_name, hcli)
+costs <- readRDS("cost_ratios.RDS")
+costs <- costs %>% 
+  mutate(region_name = str_squish(str_to_lower(str_remove(region_name, "of England")))) %>% 
+  select(region_name, cost_ratio)
+ar <- read_csv("regional_affordability.csv")
+ar <- ar %>% 
+  select(Name, `2021`) %>% 
+  rename(region_name = Name,
+         price_ratio = `2021`) %>% 
+  mutate(region_name = str_squish(str_to_lower(region_name)))
+
+region <- read_csv("lasregionew2021lookup.csv")
+
+cost_merge <- region %>% 
+  select(`Region code`, `Region name`) %>% 
+  rename(region_code = 1, region_name = 2) %>%
+  mutate(region_name = str_to_lower(region_name)) %>% 
+  unique() %>% 
+  right_join(costs, by = "region_name") %>% 
+  left_join(hcli, by = "region_name") %>% 
+  left_join(ar, by = "region_name") %>% 
+  na.omit()
+
+df <- df %>% 
+  left_join(cost_merge, by = "region_code") %>% 
+  mutate(cost_ratio = scale_this(cost_ratio),
+         hcli = scale_this(hcli),
+         price_ratio = scale_this(price_ratio))
+
+rm(costs, region, cost_merge, hcli, ar)
+
 # scaling variables --------------------------------------------------------
 
 # renaming originals
@@ -277,7 +317,8 @@ df <- df %>%
          uni_pred, uni_full, white_british,  no_religion, c1_c2, d_e, 
          own_outright, own_mortgage, social_housing, private_renting, 
          age, age_raw, non_uk_born, homeowner, edu_20plus,
-         all_of(level_twos), contains("raw"), region_code, london)
+         all_of(level_twos), contains("raw"), region_code, london,
+         cost_ratio, hcli, price_ratio)
 
 # reordering immigSelf ------------------------------------------------
 
