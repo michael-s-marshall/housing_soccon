@@ -104,9 +104,9 @@ Data and modelling strategy:
 
 Key findings:  
 
-* Association of between affordability with opposition to immmigration is again contingent upon tenure, with the direction of the interactions consistent with the cross-sectional modelling  
-* Variation in affordability within local authorities also associated with the outcome variable; declining affordability within a local authority associated with more opposition to immigration  
-* Findings robust to log scale of affordability, use of log house prices as independent variable, inclusion of change in the percentage of people degree educated between censuses as a control variable, and modelling of within local authority change via a fixed effects model  
+* Association of between affordability with opposition to immmigration is again contingent upon tenure, with the direction of the interactions consistent with the cross-sectional modelling, but only the interaction with social renting statistically significant  
+* Variation in affordability within local authorities not associated with the outcome variable; therefore, no evidence of geotropic effect  
+* Findings robust to: a) log scale of affordability as dependent variable, b) log house prices as dependent variable,  and c) including as an independent variable the change between censuses in the percentage of people degree educated in a local authority  
 
 ```{r, include=TRUE, results = 'asis'}
 immi_long <- readRDS("working/markdown_data/immi_int_long.RDS")

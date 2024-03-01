@@ -71,7 +71,7 @@ immi_fe <- felm(immigSelf ~ affordability +
                   pop_density + foreign_per_1000 +
                   over_65_pct + under_15_pct +
                   gdp_capita + 
-                  manuf_pct + year_c | 
+                  manuf_pct + as.factor(year_c) | 
                   id + LAD,
                 data = immig_df)
 summary(immi_fe)
@@ -83,7 +83,7 @@ immi_fe2 <- lmer(immigSelf ~ affordability_within +
                    over_65_pct_within + under_15_pct_within +
                    gdp_capita_within + 
                    manuf_pct_within +
-                   year_c +
+                   as.factor(year_c) +
                    (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_fe2)
@@ -95,7 +95,7 @@ immi_fe3 <- lmer(immigSelf ~ affordability + affordability_mean +
                    under_15_pct + under_15_pct_mean +
                    gdp_capita + gdp_capita_mean +
                    manuf_pct + manuf_pct_mean +
-                   year_c + (1|LAD) + (1|id),
+                   as.factor(year_c) + (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_fe3)
 
@@ -134,7 +134,7 @@ immi_lv1 <- lmer(immigSelf ~ affordability_mean + affordability_within +
                    edu_20plus + male + white + no_religion + c1_c2 + 
                    d_e + non_uk_born + private_renting +
                    homeowner + social_housing +
-                   year_c + degree_pct +
+                   as.factor(year_c) + degree_pct +
                    (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_lv1)
@@ -157,7 +157,7 @@ immi_int <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                    edu_20plus + male + white + no_religion + c1_c2 + 
                    d_e + non_uk_born + # private_renting +
                    #homeowner + social_housing +
-                   year_c + degree_pct +
+                   as.factor(year_c) + degree_pct +
                    (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_int)
@@ -181,7 +181,7 @@ immi_log <- lmer(immigSelf ~ (social_housing * affordability_log_mean) +
                    edu_20plus + male + white + no_religion + c1_c2 + 
                    d_e + non_uk_born + private_renting +
                    #homeowner + social_housing +
-                   year_c + degree_pct +
+                   as.factor(year_c) + degree_pct +
                    (1|LAD) + (1|id),
                  data = immig_df, REML = FALSE)
 summary(immi_log)
@@ -199,7 +199,7 @@ immi_price <- lmer(immigSelf ~ (social_housing * prices_mean) +
                      manuf_pct_within + manuf_pct_mean +
                      edu_20plus + male + white + no_religion + c1_c2 +
                      d_e + non_uk_born + private_renting +
-                     year_c + degree_pct +
+                     as.factor(year_c) + degree_pct +
                      (1|LAD) + (1|id),
                    data = immig_df_price, REML = FALSE)
 summary(immi_price)
@@ -217,7 +217,7 @@ immi_int2 <- lmer(immigSelf ~ (social_housing * affordability_mean) +
                     manuf_pct_within + manuf_pct_mean +
                     edu_20plus + male + white + no_religion + c1_c2 + 
                     d_e + non_uk_born + private_renting +
-                    year_c + degree_pct + degree_pct_change +
+                    as.factor(year_c) + degree_pct + degree_pct_change +
                     (1|LAD) + (1|id),
                   data = immig_df_change, REML = FALSE)
 summary(immi_int2)
@@ -235,7 +235,7 @@ immi_uni <- lmer(immigSelf ~ (social_housing * affordability_mean) +
                    manuf_pct_within + manuf_pct_mean +
                    uni + male + white + no_religion + c1_c2 +
                    d_e + non_uk_born + private_renting +
-                   year_c + degree_pct + 
+                   as.factor(year_c) + degree_pct + 
                    (1|LAD) + (1|id),
                  data = immig_df_uni, REML = FALSE)
 summary(immi_uni)
